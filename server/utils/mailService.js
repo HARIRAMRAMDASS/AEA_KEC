@@ -1,13 +1,13 @@
 const { Resend } = require('resend');
 
-// Check if API Key exists and log it (existence only for safety)
-if (!process.env.RESEND_API_KEY) {
-    console.warn('⚠️ WARNING: RESEND_API_KEY is not defined in environment variables.');
-} else {
+// Initialize Resend lazily to prevent crash if key is missing
+let resend = null;
+if (process.env.RESEND_API_KEY) {
     console.log('✅ Resend API Key detected');
+    resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+    console.warn('⚠️ WARNING: RESEND_API_KEY is missing. Emails will not be sent.');
 }
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Sends a production-ready email via Resend
@@ -18,6 +18,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 const sendMail = async ({ to, subject, html }) => {
     try {
+        if (!resend) {
+            console.error('❌ Mail Service Error: Cannot send email because RESEND_API_KEY is missing.');
+            return { success: false, error: 'API key not configured' };
+        }
+
         // Ensure 'to' is an array if multiple emails are provided
         const recipients = Array.isArray(to) ? to : [to];
 
