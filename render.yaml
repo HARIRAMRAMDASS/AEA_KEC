@@ -6,6 +6,8 @@ services:
     startCommand: cd server && npm start
     plan: free
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: MONGO_URI
         sync: false
       - key: NODE_VERSION

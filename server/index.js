@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const dotenv = require('dotenv');
 dotenv.config();
 const cors = require('cors');
@@ -35,9 +36,19 @@ app.use('/api/events', eventRoutes);
 app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
 
-app.get('/', (req, res) => {
-    res.send('API is running...');
-});
+// Static file serving for production
+const __dirname_root = path.resolve();
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname_root, 'client/dist')));
+
+    app.get('*', (req, res) =>
+        res.sendFile(path.resolve(__dirname_root, 'client', 'dist', 'index.html'))
+    );
+} else {
+    app.get('/', (req, res) => {
+        res.send('API is running...');
+    });
+}
 
 // Seed Admin
 const seedAdmin = async () => {
