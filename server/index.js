@@ -1,45 +1,63 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+dotenv.config();
 const cors = require('cors');
-require('dotenv').config();
-const path = require('path');
+const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const authRoutes = require('./routes/authRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const bearerRoutes = require('./routes/bearerRoutes');
+const videoRoutes = require('./routes/videoRoutes');
+const Admin = require('./models/Admin');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+        console.log('MongoDB Connected');
+        seedAdmin();
+    })
+    .catch(err => console.log(err));
 
-// MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-    console.error("MONGO_URI is not defined in .env");
-}
-
-mongoose.connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+app.use(cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cookieParser());
 
 // Routes
-const apiRoutes = require('./routes/api');
-app.use('/api', apiRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/bearers', bearerRoutes);
+app.use('/api/videos', videoRoutes);
 
-// Serve static files from the React app (Client)
-// This enables the "one service" deployment model if desired, or just helpful for testing.
-// In production on Render, if we deploy as a backend service that also serves frontend:
-app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('/', (req, res) => {
+    res.send('API is running...');
+});
 
-app.get('*', (req, res) => {
-    // Only send index.html if the request isn't an API request
-    if (!req.path.startsWith('/api')) {
-         res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+// Seed Admin
+const seedAdmin = async () => {
+    try {
+        const adminExists = await Admin.findOne({ email: 'ramdasshariram@gmail.com' });
+        if (!adminExists) {
+            await Admin.create({
+                email: 'ramdasshariram@gmail.com',
+                password: 'hari567@4'
+            });
+            console.log('Default admin seeded');
+        }
+    } catch (error) {
+        console.error('Admin seeding failed:', error);
     }
-});
+};
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Middleware
+app.use(notFound);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

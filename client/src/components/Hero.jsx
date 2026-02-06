@@ -3,36 +3,67 @@ import { motion } from 'framer-motion';
 
 const Hero = () => {
     return (
-        <div className="h-screen flex flex-col justify-center items-center text-center px-4 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-primary opacity-80 z-10"></div>
-            {/* Background decoration */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 z-0">
-                <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-accent rounded-full blur-[150px]"></div>
-                <div className="absolute top-[40%] right-[10%] w-[30%] h-[30%] bg-highlight rounded-full blur-[120px]"></div>
-            </div>
+        <section style={{
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+            padding: '0 5%'
+        }}>
+            {/* Background elements */}
+            <div style={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'linear-gradient(45deg, rgba(0,0,0,1) 0%, rgba(10,10,10,0.8) 100%)',
+                zIndex: -1
+            }} />
 
             <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                className="z-20 max-w-4xl"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 1 }}
+                style={{ maxWidth: '800px', textAlign: 'center' }}
             >
-                <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                    Automobile Engineering Association
+                <motion.h4
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    style={{ color: 'var(--mercedes-green)', letterSpacing: '5px', marginBottom: '20px' }}
+                >
+                    KONGU ENGINEERING COLLEGE
+                </motion.h4>
+                <h1 style={{ fontSize: 'clamp(3rem, 8vw, 6rem)', lineHeight: 1, marginBottom: '10px', fontWeight: 900 }}>
+                    AUTOMOBILE <br />
+                    <span style={{ color: 'transparent', WebkitTextStroke: '2px white' }}>ENGINEERING</span> <br />
+                    ASSOCIATION
                 </h1>
-                <p className="text-xl md:text-2xl text-gray-300 mb-10">
-                    Fueling Innovation. Driving the Future.
+                <h3 style={{ color: 'var(--mercedes-green)', fontSize: '1.2rem', marginBottom: '30px', fontWeight: 600 }}>DEPARTMENT OF AUTOMOBILE ENGINEERING</h3>
+                <p style={{ fontSize: '1.2rem', color: '#ccc', marginBottom: '40px', maxWidth: '600px', margin: '0 auto 40px' }}>
+                    Pushing the boundaries of automotive excellence. Join us in the pursuit of speed, innovation, and engineering mastery.
                 </p>
-                <div className="flex gap-4 justify-center">
-                    <a href="#events" className="border border-accent text-accent px-8 py-3 rounded-full hover:bg-accent hover:text-white transition-all duration-300">
-                        Explore Events
-                    </a>
-                    <a href="#register" className="bg-accent text-white px-8 py-3 rounded-full hover:bg-opacity-90 shadow-lg hover:shadow-accent/50 transition-all duration-300">
-                        Register
-                    </a>
+                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                    <button
+                        onClick={() => document.getElementById('events')?.scrollIntoView({ behavior: 'smooth' })}
+                        className="btn-primary"
+                        style={{ background: 'var(--mercedes-green)', border: 'none', padding: '15px 30px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        View Events
+                    </button>
+                    <a href="/register" className="btn-secondary">Register Now</a>
                 </div>
             </motion.div>
-        </div>
+
+            {/* Mercedes Green accent lines */}
+            <div style={{
+                position: 'absolute', bottom: '10%', right: '-5%', width: '40%', height: '2px',
+                background: 'var(--mercedes-green)', transform: 'rotate(-45deg)', opacity: 0.3
+            }} />
+            <div style={{
+                position: 'absolute', top: '15%', left: '-5%', width: '30%', height: '2px',
+                background: 'var(--mercedes-green)', transform: 'rotate(-45deg)', opacity: 0.3
+            }} />
+        </section>
     );
 };
 

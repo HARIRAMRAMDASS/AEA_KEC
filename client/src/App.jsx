@@ -1,22 +1,44 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import Events from './components/Events';
-import RegistrationForm from './components/RegistrationForm';
+import LoadingScreen from './components/LoadingScreen';
+import Footer from './components/Footer';
+
+import Home from './pages/Home';
+import Registration from './pages/Registration';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+
+const Layout = ({ children }) => {
+    return (
+        <>
+            <Navbar />
+            {children}
+            <Footer />
+        </>
+    );
+};
 
 function App() {
     return (
-        <div className="min-h-screen bg-primary text-textLight">
-            <Navbar />
-            <Hero />
-            <Events />
-            <RegistrationForm />
-
-            <footer className="bg-secondary py-8 text-center text-gray-500 text-sm">
-                <p>&copy; {new Date().getFullYear()} AEA_KEC. All rights reserved.</p>
-                <p className="mt-2">Designed for Future Engineers.</p>
-            </footer>
-        </div>
+        <Router>
+            <Layout>
+                <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/register" element={<Registration />} />
+                    <Route path="/admin-login" element={<AdminLogin />} />
+                    <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                </Routes>
+            </Layout>
+            <ToastContainer
+                position="bottom-right"
+                theme="dark"
+                toastStyle={{ background: '#0A0A0A', border: '1px solid #00A19B', color: 'white' }}
+            />
+        </Router>
     );
 }
 
