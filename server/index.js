@@ -38,7 +38,16 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.log(err));
 
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        // Allow localhost and Render domains
+        if (origin.indexOf('localhost') !== -1 || origin.indexOf('onrender.com') !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));

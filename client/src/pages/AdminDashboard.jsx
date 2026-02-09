@@ -333,7 +333,8 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
     const [name, setName] = useState('');
     const [year, setYear] = useState('');
     const [loading, setLoading] = useState(false);
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    // Use relative path '/api' in production (served by same backend) or fully qualified for local dev
+    const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api');
 
     const handleUpload = async (e) => {
         e.preventDefault();
