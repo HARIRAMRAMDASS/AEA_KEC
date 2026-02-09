@@ -8,11 +8,21 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGO_URI
-        sync: false
       - key: NODE_VERSION
         value: 20
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
       - key: CLIENT_URL
-        value: https://aea_kec-website.onrender.com
+        value: https://aea-kec-website.onrender.com # Change this to your final Render URL
       - key: VITE_API_URL
         value: /api
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
