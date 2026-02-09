@@ -13,4 +13,6 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: CLIENT_URL
-        value: https://aea_kec-website.onrender.com # Adjust if name changes
+        value: https://aea_kec-website.onrender.com
+      - key: VITE_API_URL
+        value: /api
