@@ -11,6 +11,8 @@ const xlsx = require('xlsx');
 // @desc Create a new event
 router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
     try {
+        console.log("Create Event Payload:", req.body);
+        console.log("Create Event File:", req.file ? req.file.filename : 'No File');
         const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
 
         if (!req.file) {
