@@ -1,16 +1,12 @@
-const { Resend } = require('resend');
+/**
+ * Mail Service using Google Apps Script
+ * This replaces Resend for sending confirmation emails via Gmail.
+ */
 
-// Initialize Resend lazily to prevent crash if key is missing
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-    console.log('✅ Resend API Key detected');
-    resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-    console.warn('⚠️ WARNING: RESEND_API_KEY is missing. Emails will not be sent.');
-}
+const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
 
 /**
- * Sends a production-ready email via Resend
+ * Sends an email via Google Apps Script Web App
  * @param {Object} options - Email options
  * @param {string|string[]} options.to - Recipient email(s)
  * @param {string} options.subject - Email subject
@@ -18,30 +14,35 @@ if (process.env.RESEND_API_KEY) {
  */
 const sendMail = async ({ to, subject, html }) => {
     try {
-        if (!resend) {
-            console.error('❌ Mail Service Error: Cannot send email because RESEND_API_KEY is missing.');
-            return { success: false, error: 'API key not configured' };
+        if (!GOOGLE_SCRIPT_URL) {
+            console.warn('⚠️ WARNING: GOOGLE_SCRIPT_URL is missing. Emails will not be sent.');
+            return { success: false, error: 'Scripts URL not configured' };
         }
 
-        // Ensure 'to' is an array if multiple emails are provided
-        const recipients = Array.isArray(to) ? to : [to];
+        // Ensure 'to' is a string (comma separated) or array
+        const recipients = Array.isArray(to) ? to.join(',') : to;
 
-        const { data, error } = await resend.emails.send({
-            // ROOT CAUSE FIX: Using 'onboarding@resend.dev' works only for authorized test emails.
-            // For production with verified domains, replace this with your domain.
-            from: "AEA <onboarding@resend.dev>",
-            to: recipients,
-            subject,
-            html,
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: recipients,
+                subject: subject,
+                body: html // The Apps Script will receive this as the body
+            }),
         });
 
-        if (error) {
-            console.error('❌ Resend API Error:', error);
-            return { success: false, error };
-        }
+        const result = await response.json();
 
-        console.log('📧 Email sent successfully:', data.id);
-        return { success: true, data };
+        if (result.status === 'success') {
+            console.log('📧 Email queued/sent via Google Apps Script');
+            return { success: true };
+        } else {
+            console.error('❌ Google Script Error:', result.message);
+            return { success: false, error: result.message };
+        }
     } catch (error) {
         console.error('❌ Mail Service Crash:', error);
         return { success: false, error: error.message };

@@ -141,7 +141,7 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
 
     const emailData = {
         to: emails,
-        subject: `Successful Registration - ${eventNames}`,
+        subject: `Welcome to ${eventNames}`,
         html: `
             <div style="font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
                 <div style="background: #00A19B; color: white; padding: 20px; text-align: center;">
