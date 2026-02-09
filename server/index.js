@@ -24,6 +24,9 @@ if (!process.env.MONGO_URI) {
 if (!process.env.JWT_SECRET) {
     console.warn('WARNING: JWT_SECRET is not defined. Admin authentication will fail.');
 }
+if (!process.env.APPSCRIPT_URL) {
+    console.warn('⚠️ WARNING: APPSCRIPT_URL is missing. Email confirmations will NOT work.');
+}
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
