@@ -65,17 +65,24 @@ const Navbar = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
         }}>
-            <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '15px' }} onClick={(e) => handleNavClick(e, '/')}>
+            <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 15px)' }} onClick={(e) => handleNavClick(e, '/')}>
                 <img
                     src="/AEA_logo.svg"
                     alt="AEA KEC Logo"
                     style={{
-                        width: '55px',
+                        width: 'clamp(42px, 12vw, 55px)',
                         height: 'auto',
                         filter: 'drop-shadow(0 0 15px rgba(0, 161, 155, 0.4))'
                     }}
                 />
-                <h2 style={{ fontSize: '1.4rem', margin: 0, color: 'white', fontWeight: 900, letterSpacing: '4px', textTransform: 'uppercase' }}>
+                <h2 style={{
+                    fontSize: 'clamp(1rem, 4.5vw, 1.4rem)',
+                    margin: 0,
+                    color: 'white',
+                    fontWeight: 900,
+                    letterSpacing: 'clamp(1px, 1vw, 4px)',
+                    textTransform: 'uppercase'
+                }}>
                     AEA<span style={{ color: 'var(--mercedes-green)' }}>_KEC</span>
                 </h2>
             </Link>

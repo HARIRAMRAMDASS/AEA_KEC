@@ -155,8 +155,15 @@ const Registration = () => {
         setLoading(true);
         const submitData = new FormData();
         Object.keys(formData).forEach(key => {
-            if (key !== 'members') submitData.append(key, formData[key] || '');
+            if (key === 'members' || key === 'collegeId') return; // Skip these for manual append
+            submitData.append(key, formData[key] || '');
         });
+
+        // Only append collegeId if it exists as a valid string
+        if (formData.collegeId) {
+            submitData.append('collegeId', formData.collegeId);
+        }
+
         submitData.append('eventIds', JSON.stringify(selectedEventIds));
         submitData.append('members', JSON.stringify(formData.members.filter(m => m.name)));
         submitData.append('paymentScreenshot', screenshot);
@@ -169,7 +176,8 @@ const Registration = () => {
             setScreenshot(null);
             setSearchTerm('');
         } catch (err) {
-            toast.error(err.response?.data?.message || "Registration failed");
+            console.error("Registration Error Details:", err.response?.data);
+            toast.error(err.response?.data?.message || "Registration failed. Please check your network or try again.");
         } finally {
             setLoading(false);
         }
