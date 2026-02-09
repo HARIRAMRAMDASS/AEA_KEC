@@ -11,7 +11,7 @@ const xlsx = require('xlsx');
 // @desc Create a new event
 router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
     try {
-        const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink } = req.body;
+        const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
 
         if (!req.file) {
             res.status(400);
@@ -30,7 +30,10 @@ router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res)
                 url: req.file.path,
                 publicId: req.file.filename
             },
-            whatsappLink
+            whatsappLink,
+            maxSelectableEvents,
+            selectionMode,
+            eventGroup
         });
 
         res.status(201).json(event);
@@ -71,59 +74,97 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Event removed' });
 }));
 
-// @desc Register for an event
-router.post('/:id/register', asyncHandler(async (req, res) => {
-    const { teamName, members, college, collegeName, transactionId } = req.body;
-    const event = await Event.findById(req.params.id);
+// @desc Register for an event(s)
+router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
+    let { teamName, members, college, collegeName, transactionId, eventIds, collegeId } = req.body;
 
-    if (!event) {
-        res.status(404);
-        throw new Error('Event not found');
+    // Parse members and eventIds if they come as strings (common with FormData)
+    if (typeof members === 'string') members = JSON.parse(members);
+    if (typeof eventIds === 'string') eventIds = JSON.parse(eventIds);
+
+    if (!eventIds || eventIds.length === 0) {
+        res.status(400);
+        throw new Error('At least one event must be selected');
     }
 
-    // Check if registration is closed
-    if (new Date() > new Date(event.closingDate)) {
+    const events = await Event.find({ _id: { $in: eventIds } });
+
+    if (events.length === 0) {
+        res.status(404);
+        throw new Error('Events not found');
+    }
+
+    // Check deadlines for all selected events
+    const now = new Date();
+    for (const event of events) {
+        if (now > new Date(event.closingDate)) {
+            res.status(400);
+            throw new Error(`Registration for ${event.name} is closed`);
+        }
+    }
+
+    // Validate members: at least one member with mandatory details
+    const validMember = members.find(m => m.name && m.email && m.phone);
+    if (!validMember) {
         res.status(400);
-        throw new Error('Registration for this event is closed');
+        throw new Error('At least one team member with name, email, and phone is required');
+    }
+
+    if (!req.file) {
+        res.status(400);
+        throw new Error('Payment screenshot is mandatory');
     }
 
     const participant = await Participant.create({
-        event: event._id,
+        events: eventIds,
         teamName,
         members,
         college,
         collegeName,
-        transactionId
+        collegeId: collegeId || null,
+        transactionId,
+        paymentScreenshot: {
+            url: req.file.path,
+            publicId: req.file.filename
+        }
     });
 
-    // Send Emails via centralized Mail Service
-    const emails = members.map(m => m.email);
+    // Send Emails
+    const emails = members.filter(m => m.email).map(m => m.email);
+    const eventNames = events.map(e => e.name).join(', ');
 
-    // Trigger email AFTER database success
     const emailData = {
         to: emails,
-        subject: `Welcome to ${event.name}`,
+        subject: `Successful Registration - ${eventNames}`,
         html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <h1 style="color: #00A19B;">Registration Successful!</h1>
-                <p>Hi Team,</p>
-                <p>You have successfully registered for <strong>${event.name}</strong>.</p>
-                <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                    <p><strong>Event Details:</strong></p>
-                    <ul style="list-style: none; padding: 0;">
-                        <li>📅 <strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</li>
-                        <li>💳 <strong>Transaction ID:</strong> ${transactionId}</li>
-                    </ul>
+            <div style="font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                <div style="background: #00A19B; color: white; padding: 20px; text-align: center;">
+                    <h1>Registration Confirmed!</h1>
                 </div>
-                <p><strong>Important Instruction:</strong> Come with your college ID card for verification.</p>
-                <p>Join the WhatsApp group for updates: <a href="${event.whatsappLink}" style="color: #00A19B;">Join Group</a></p>
-                <br/>
-                <p>Best Regards,<br/><strong>Automobile Engineering Association (AEA)</strong></p>
+                <div style="padding: 30px;">
+                    <p>Hi Team,</p>
+                    <p>You have successfully registered for the following events:</p>
+                    <div style="background: #f9f9f9; padding: 20px; border-left: 5px solid #00A19B; margin: 20px 0;">
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            ${events.map(e => `
+                                <li style="margin-bottom: 10px;">
+                                    <strong>${e.name}</strong><br/>
+                                    <small>Date: ${new Date(e.date).toLocaleDateString()} - ${new Date(e.date).toLocaleTimeString()}</small><br/>
+                                    <a href="${e.whatsappLink}" style="color: #00A19B; text-decoration: none; font-size: 0.9rem;">Join WhatsApp Group</a>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    <p><strong>Transaction ID:</strong> ${transactionId}</p>
+                    <p>Please bring your college ID card for on-spot verification.</p>
+                    <br/>
+                    <p>Gear up for the grid!</p>
+                    <p>Regards,<br/><strong>AEA Team</strong></p>
+                </div>
             </div>
         `
     };
 
-    // Execute email sending in background (don't block response)
     sendMail(emailData).catch(err => console.error('Background Email Error:', err));
 
     res.status(201).json(participant);
@@ -166,6 +207,18 @@ router.get('/:id/export', protect, asyncHandler(async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Registrations_${event.name.replace(/\s+/g, '_')}.xlsx`);
     res.send(buffer);
+}));
+
+// @desc Update global selection mode for all events
+router.put('/global-mode', protect, asyncHandler(async (req, res) => {
+    const { selectionMode } = req.body;
+    if (!['Only Zhakra', 'Only Auto Expo', 'Both'].includes(selectionMode)) {
+        res.status(400);
+        throw new Error('Invalid selection mode');
+    }
+
+    await Event.updateMany({}, { selectionMode });
+    res.json({ message: 'Global selection mode updated' });
 }));
 
 module.exports = router;

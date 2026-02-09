@@ -75,8 +75,17 @@ const Home = () => {
                             <span style={{ background: 'var(--mercedes-green)', color: '#000', padding: '5px 10px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>{ev.type}</span>
                             <h3 style={{ marginTop: '15px' }}>{ev.name}</h3>
                             <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>Date: {new Date(ev.date).toLocaleDateString()}</p>
-                            <p style={{ margin: '20px 0', fontSize: '1.1rem' }}>Entry: {'\u20B9'}{ev.feeAmount}</p>
-                            <a href="/register" className="btn-primary" style={{ width: '100%' }}>Register Now</a>
+                            <p style={{ margin: '10px 0', fontSize: '1.1rem' }}>Entry: {'\u20B9'}{ev.feeAmount}</p>
+                            <p style={{ marginBottom: '20px', fontSize: '0.8rem', color: new Date() > new Date(ev.closingDate) ? '#ff4d4d' : 'var(--mercedes-green)', fontWeight: 'bold' }}>
+                                {new Date() > new Date(ev.closingDate) ? 'REGISTRATION CLOSED' : `Closes: ${new Date(ev.closingDate).toLocaleDateString()} - ${new Date(ev.closingDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                            </p>
+                            <a
+                                href="/register"
+                                className="btn-primary"
+                                style={{ width: '100%', opacity: new Date() > new Date(ev.closingDate) ? 0.5 : 1, pointerEvents: new Date() > new Date(ev.closingDate) ? 'none' : 'auto' }}
+                            >
+                                {new Date() > new Date(ev.closingDate) ? 'Closed' : 'Register Now'}
+                            </a>
                         </motion.div>
                     ))}
                     {events.length === 0 && <p style={{ opacity: 0.5 }}>Currently no grid slots available. Stay tuned.</p>}

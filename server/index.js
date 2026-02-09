@@ -10,7 +10,9 @@ const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const bearerRoutes = require('./routes/bearerRoutes');
 const videoRoutes = require('./routes/videoRoutes');
+const collegeRoutes = require('./routes/collegeRoutes');
 const Admin = require('./models/Admin');
+const College = require('./models/College');
 
 const app = express();
 
@@ -19,6 +21,7 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log('MongoDB Connected');
         seedAdmin();
+        seedColleges();
     })
     .catch(err => console.log(err));
 
@@ -35,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/colleges', collegeRoutes);
 
 // Static file serving for production
 const __dirname_root = path.resolve();
@@ -63,6 +67,64 @@ const seedAdmin = async () => {
         }
     } catch (error) {
         console.error('Admin seeding failed:', error);
+    }
+};
+
+// Seed Colleges (Tamil Nadu Extensive List)
+const seedColleges = async () => {
+    try {
+        const count = await College.countDocuments();
+        if (count > 0) return;
+
+        const majorColleges = [
+            // Erode
+            { name: "Kongu Engineering College", district: "Erode", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Bannari Amman Institute of Technology", district: "Erode", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Nandha Engineering College", district: "Erode", type: "Engineering", affiliation: "Anna University" },
+            { name: "Erode Sengunthar Engineering College", district: "Erode", type: "Engineering", affiliation: "Anna University" },
+            { name: "Velalar College of Engineering and Technology", district: "Erode", type: "Engineering", affiliation: "Autonomous" },
+
+            // Coimbatore
+            { name: "PSG College of Technology", district: "Coimbatore", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Kumaraguru College of Technology", district: "Coimbatore", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Government College of Technology", district: "Coimbatore", type: "Engineering" },
+            { name: "Coimbatore Institute of Technology", district: "Coimbatore", type: "Engineering", affiliation: "Government Aided" },
+            { name: "Sri Krishna College of Engineering and Technology", district: "Coimbatore", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Sri Ramakrishna Engineering College", district: "Coimbatore", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Amrita Vishwa Vidyapeetham", district: "Coimbatore", type: "Engineering", affiliation: "Deemed" },
+
+            // Chennai
+            { name: "College of Engineering, Guindy", district: "Chennai", type: "Engineering", affiliation: "Anna University" },
+            { name: "Madras Institute of Technology", district: "Chennai", type: "Engineering", affiliation: "Anna University" },
+            { name: "Loyola College", district: "Chennai", type: "Arts & Science" },
+            { name: "Madras Christian College", district: "Chennai", type: "Arts & Science" },
+            { name: "Madras Medical College", district: "Chennai", type: "Medical" },
+            { name: "Stanley Medical College", district: "Chennai", type: "Medical" },
+            { name: "St. Joseph's College of Engineering", district: "Chennai", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Panimalar Engineering College", district: "Chennai", type: "Engineering" },
+
+            // Trichy / Madurai / Salem
+            { name: "National Institute of Technology", district: "Tiruchirappalli", type: "Engineering", affiliation: "NIT" },
+            { name: "Thiagarajar College of Engineering", district: "Madurai", type: "Engineering", affiliation: "Autonomous" },
+            { name: "Government College of Engineering, Salem", district: "Salem", type: "Engineering" },
+            { name: "Government College of Engineering, Bargur", district: "Krishnagiri", type: "Engineering" },
+            { name: "Government College of Engineering, Tirunelveli", district: "Tirunelveli", type: "Engineering" },
+
+            // Polytechnic
+            { name: "Government Polytechnic College, Erode", district: "Erode", type: "Polytechnic" },
+            { name: "Government Polytechnic College, Coimbatore", district: "Coimbatore", type: "Polytechnic" },
+            { name: "Nandha Polytechnic College", district: "Erode", type: "Polytechnic" },
+
+            // Arts
+            { name: "PSG College of Arts and Science", district: "Coimbatore", type: "Arts & Science" },
+            { name: "Kongu Arts and Science College", district: "Erode", type: "Arts & Science" },
+            { name: "Bishop Heber College", district: "Tiruchirappalli", type: "Arts & Science" }
+        ];
+
+        await College.insertMany(majorColleges);
+        console.log('Tamil Nadu colleges database initialized');
+    } catch (error) {
+        console.error('College seeding failed:', error);
     }
 };
 

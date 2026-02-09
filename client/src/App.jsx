@@ -11,6 +11,7 @@ import Home from './pages/Home';
 import Registration from './pages/Registration';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import Highlights from './pages/Highlights';
 
 const Layout = ({ children }) => {
     return (
@@ -29,6 +30,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/register" element={<Registration />} />
+                    <Route path="/highlights" element={<Highlights />} />
                     <Route path="/admin-login" element={<AdminLogin />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 </Routes>

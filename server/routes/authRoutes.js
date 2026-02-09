@@ -59,10 +59,30 @@ router.post('/register', protect, asyncHandler(async (req, res) => {
     }
 }));
 
-// @desc Get current admin
-// @route GET /api/auth/me
-router.get('/me', protect, asyncHandler(async (req, res) => {
-    res.status(200).json(req.admin);
+// @desc Get all admins
+// @route GET /api/auth
+router.get('/', protect, asyncHandler(async (req, res) => {
+    const admins = await Admin.find({}).select('-password');
+    res.json(admins);
+}));
+
+// @desc Delete an admin
+// @route DELETE /api/auth/:id
+router.delete('/:id', protect, asyncHandler(async (req, res) => {
+    const adminCount = await Admin.countDocuments();
+    if (adminCount <= 1) {
+        res.status(400);
+        throw new Error('At least one admin is required');
+    }
+
+    const admin = await Admin.findById(req.params.id);
+    if (!admin) {
+        res.status(404);
+        throw new Error('Admin not found');
+    }
+
+    await admin.deleteOne();
+    res.json({ message: 'Admin deleted successfully' });
 }));
 
 module.exports = router;

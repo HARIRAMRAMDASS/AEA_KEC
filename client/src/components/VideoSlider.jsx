@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
-const VideoSlider = () => {
+const VideoSlider = ({ muted = true }) => {
     const [videos, setVideos] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -24,28 +24,30 @@ const VideoSlider = () => {
         if (videos.length === 0) return;
         const interval = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % videos.length);
-        }, 5000); // Videos stay a bit longer
+        }, 8000);
         return () => clearInterval(interval);
     }, [videos]);
 
     if (videos.length === 0) return null;
 
     return (
-        <section style={{ padding: '100px 5%', background: '#FFFFFF', textAlign: 'center', color: '#000' }}>
-            <h2 style={{ marginBottom: '50px', color: '#000' }}>Event Highlights</h2>
-            <div style={{ position: 'relative', maxWidth: '1000px', margin: '0 auto', borderRadius: '20px', overflow: 'hidden' }}>
+        <section style={{ padding: '80px 5%', background: '#FFFFFF', textAlign: 'center', color: '#000' }}>
+            <h2 style={{ marginBottom: '40px', color: '#000', fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase' }}>Event Highlights</h2>
+            <div style={{ position: 'relative', maxWidth: '1000px', margin: '0 auto', borderRadius: '25px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
                 <AnimatePresence mode="wait">
                     <motion.video
                         key={videos[currentIndex]._id}
                         src={videos[currentIndex].videoUrl}
                         autoPlay
-                        muted
                         loop
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 1 }}
-                        style={{ width: '100%', height: 'auto', borderRadius: '20px' }}
+                        muted={muted}
+                        controls
+                        playsInline
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ duration: 0.8 }}
+                        style={{ width: '100%', display: 'block' }}
                     />
                 </AnimatePresence>
             </div>

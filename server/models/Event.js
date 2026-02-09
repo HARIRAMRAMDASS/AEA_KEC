@@ -12,7 +12,18 @@ const eventSchema = new mongoose.Schema({
         url: { type: String, required: true },
         publicId: { type: String, required: true }
     },
-    whatsappLink: { type: String, required: true }
+    whatsappLink: { type: String, required: true },
+    maxSelectableEvents: { type: Number, default: 1 },
+    selectionMode: {
+        type: String,
+        enum: ['Only Zhakra', 'Only Auto Expo', 'Both'],
+        default: 'Both'
+    },
+    eventGroup: {
+        type: String,
+        enum: ['Zhakra', 'Auto Expo'],
+        default: 'Zhakra'
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Event', eventSchema);

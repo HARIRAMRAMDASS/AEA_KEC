@@ -39,15 +39,31 @@ const ImageSlider = () => {
             <h2 style={{ marginBottom: '50px' }}>Office Bearers</h2>
             <div style={{ position: 'relative', maxWidth: '1000px', margin: '0 auto', height: '500px', overflow: 'hidden', borderRadius: '20px' }}>
                 <AnimatePresence mode="wait">
-                    <motion.img
+                    <motion.div
                         key={images[currentIndex]._id}
-                        src={images[currentIndex].imageUrl}
                         initial={{ opacity: 0, x: 100 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -100 }}
                         transition={{ duration: 0.5 }}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
+                        style={{ width: '100%', height: '100%', position: 'relative' }}
+                    >
+                        <img
+                            src={images[currentIndex].imageUrl}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '0',
+                            left: '0',
+                            right: '0',
+                            background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                            padding: '40px 20px 20px',
+                            color: 'white'
+                        }}>
+                            <h3 style={{ margin: 0, color: 'var(--mercedes-green)' }}>{images[currentIndex].name}</h3>
+                            <p style={{ margin: '5px 0 0', opacity: 0.8 }}>{images[currentIndex].year}</p>
+                        </div>
+                    </motion.div>
                 </AnimatePresence>
 
                 <button onClick={prevSlide} style={btnStyle('left')}><FiChevronLeft /></button>

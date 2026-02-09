@@ -174,7 +174,7 @@ const SidebarLink = ({ active, icon, label, onClick }) => (
 const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
-        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 0, closingDate: '', whatsappLink: ''
+        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra'
     });
     const [qrFile, setQrFile] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -193,7 +193,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
             await axios.post(`${API_URL}/events`, data, { withCredentials: true });
             toast.success('Event Created');
             setShowForm(false);
-            setFormData({ name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 0, closingDate: '', whatsappLink: '' });
+            setFormData({ name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra' });
             setQrFile(null);
             onRefresh();
         } catch (err) {
@@ -205,9 +205,29 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' }}>
                 <h1 style={{ fontSize: '1.5rem' }}>Events Management</h1>
-                <button className="btn-primary" onClick={() => setShowForm(!showForm)}><FiPlus /> {showForm ? 'Back to List' : 'Create Event'}</button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Symposium Mode:</label>
+                    <select
+                        style={{ ...inputStyle, width: 'auto', padding: '10px' }}
+                        value={events[0]?.selectionMode || 'Both'}
+                        onChange={async (e) => {
+                            try {
+                                await axios.put(`${API_URL}/events/global-mode`, { selectionMode: e.target.value }, { withCredentials: true });
+                                toast.success(`Mode set to ${e.target.value}`);
+                                onRefresh();
+                            } catch (err) {
+                                toast.error("Failed to update mode");
+                            }
+                        }}
+                    >
+                        <option>Only Zhakra</option>
+                        <option>Only Auto Expo</option>
+                        <option>Both</option>
+                    </select>
+                    <button className="btn-primary" onClick={() => setShowForm(!showForm)}><FiPlus /> {showForm ? 'Back to List' : 'Create Event'}</button>
+                </div>
             </div>
 
             {showForm ? (
@@ -249,6 +269,28 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                                 <input required type="number" style={inputStyle} value={formData.feeAmount} onChange={e => setFormData({ ...formData, feeAmount: e.target.value })} />
                             </div>
                         </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={labelStyle}>Selection Mode</label>
+                                <select style={inputStyle} value={formData.selectionMode} onChange={e => setFormData({ ...formData, selectionMode: e.target.value })}>
+                                    <option>Only Zhakra</option>
+                                    <option>Only Auto Expo</option>
+                                    <option>Both</option>
+                                </select>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={labelStyle}>Event Group</label>
+                                <select style={inputStyle} value={formData.eventGroup} onChange={e => setFormData({ ...formData, eventGroup: e.target.value })}>
+                                    <option>Zhakra</option>
+                                    <option>Auto Expo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Max Selectable Events</label>
+                            <input required type="number" min="1" style={inputStyle} value={formData.maxSelectableEvents || 1} onChange={e => setFormData({ ...formData, maxSelectableEvents: e.target.value })} />
+                            <small style={{ fontSize: '0.7rem', opacity: 0.5 }}>Allows participants to select multiple events in one registration.</small>
+                        </div>
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>WhatsApp Group Link</label>
                             <input required placeholder="https://chat.whatsapp.com/..." style={inputStyle} value={formData.whatsappLink} onChange={e => setFormData({ ...formData, whatsappLink: e.target.value })} />
@@ -286,20 +328,30 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
 const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false }) => {
     const [file, setFile] = useState(null);
+    const [name, setName] = useState('');
+    const [year, setYear] = useState('');
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     const handleUpload = async (e) => {
         e.preventDefault();
         if (!file) return toast.error('Select a file first');
+        if (type === 'bearers' && (!name || !year)) return toast.error('Name and Year are mandatory');
+
         setLoading(true);
         const formData = new FormData();
         formData.append(isVideo ? 'video' : 'image', file);
+        if (type === 'bearers') {
+            formData.append('name', name);
+            formData.append('year', year);
+        }
 
         try {
             await axios.post(`${API_URL}/${type}`, formData, { withCredentials: true });
             toast.success('Successfully uploaded to server');
             setFile(null);
+            setName('');
+            setYear('');
             onRefresh();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Upload failed. Check server logs.');
@@ -312,8 +364,23 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
         <div>
             <h1>{title}</h1>
             <div className="glass-card" style={{ marginBottom: '40px' }}>
-                <form onSubmit={handleUpload} style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input type="file" onChange={e => setFile(e.target.files[0])} accept={isVideo ? 'video/*' : 'image/*'} style={{ flex: 1 }} />
+                <form onSubmit={handleUpload} style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <label style={labelStyle}>Select {isVideo ? 'Video' : 'Image'}</label>
+                        <input type="file" onChange={e => setFile(e.target.files[0])} accept={isVideo ? 'video/*' : 'image/*'} style={{ width: '100%' }} />
+                    </div>
+                    {type === 'bearers' && (
+                        <>
+                            <div style={{ flex: 1, minWidth: '200px' }}>
+                                <label style={labelStyle}>Full Name</label>
+                                <input required placeholder="eg: John Doe" style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: '200px' }}>
+                                <label style={labelStyle}>Year/Position</label>
+                                <input required placeholder="eg: 2024-2025" style={inputStyle} value={year} onChange={e => setYear(e.target.value)} />
+                            </div>
+                        </>
+                    )}
                     <button disabled={loading} className="btn-primary" style={{ minWidth: '150px' }}>{loading ? 'Uploading...' : 'Upload'}</button>
                 </form>
             </div>
@@ -324,7 +391,15 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
                         {isVideo ? (
                             <video src={item.videoUrl} controls style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
                         ) : (
-                            <img src={item.imageUrl} alt="bearer" style={{ width: '100%', height: '250px', objectFit: 'cover' }} />
+                            <>
+                                <img src={item.imageUrl} alt="bearer" style={{ width: '100%', height: '250px', objectFit: 'cover' }} />
+                                {type === 'bearers' && (
+                                    <div style={{ padding: '15px' }}>
+                                        <p style={{ margin: 0, color: 'var(--mercedes-green)', fontWeight: 'bold' }}>{item.name}</p>
+                                        <p style={{ margin: '5px 0 0', fontSize: '0.8rem', opacity: 0.6 }}>{item.year}</p>
+                                    </div>
+                                )}
+                            </>
                         )}
                         <button
                             onClick={() => onDelete(item._id)}
@@ -342,35 +417,103 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
 
 const AdminsPanel = ({ onRefresh }) => {
     const [formData, setFormData] = useState({ email: '', password: '' });
+    const [admins, setAdmins] = useState([]);
+    const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+    useEffect(() => {
+        fetchAdmins();
+    }, []);
+
+    const fetchAdmins = async () => {
+        try {
+            const { data } = await axios.get(`${API_URL}/auth`, { withCredentials: true });
+            setAdmins(data);
+        } catch (err) {
+            console.error('Failed to fetch admins');
+        }
+    };
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        setLoading(true);
         try {
             await axios.post(`${API_URL}/auth/register`, formData, { withCredentials: true });
             toast.success('Access Granted to new Admin');
             setFormData({ email: '', password: '' });
-            onRefresh();
+            fetchAdmins();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to add admin');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Remove this admin?')) return;
+        try {
+            await axios.delete(`${API_URL}/auth/${id}`, { withCredentials: true });
+            toast.success('Admin removed');
+            fetchAdmins();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Deletion failed');
         }
     };
 
     return (
-        <div style={{ maxWidth: '500px' }}>
-            <h1>Admin Management</h1>
-            <div className="glass-card">
-                <form onSubmit={handleAdd}>
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={labelStyle}>Email Address</label>
-                        <input required type="email" placeholder="email@kongu.edu" style={inputStyle} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+        <div style={{ maxWidth: '800px' }}>
+            <h1 style={{ marginBottom: '30px' }}>Admin Management</h1>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+                <div className="glass-card">
+                    <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Add New Admin</h3>
+                    <form onSubmit={handleAdd}>
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={labelStyle}>Email Address</label>
+                            <input required type="email" placeholder="email@kongu.edu" style={inputStyle} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                        </div>
+                        <div style={{ marginBottom: '30px' }}>
+                            <label style={labelStyle}>Access Password</label>
+                            <input required type="password" placeholder="••••••••" style={inputStyle} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                        </div>
+                        <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '15px' }}>{loading ? 'Processing...' : 'Authorize'}</button>
+                    </form>
+                </div>
+
+                <div className="glass-card">
+                    <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Active Admins</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        {admins.map(admin => (
+                            <div key={admin._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.email}</p>
+                                    <p style={{ margin: '5px 0 0', fontSize: '0.7rem', opacity: 0.5 }}>PWD: •••••••• (Hashed)</p>
+                                </div>
+                                <button
+                                    onClick={() => handleDelete(admin._id)}
+                                    disabled={admins.length <= 1}
+                                    style={{
+                                        background: 'rgba(255, 77, 77, 0.1)',
+                                        color: '#ff4d4d',
+                                        border: 'none',
+                                        padding: '8px',
+                                        borderRadius: '6px',
+                                        cursor: admins.length <= 1 ? 'not-allowed' : 'pointer',
+                                        opacity: admins.length <= 1 ? 0.3 : 1
+                                    }}
+                                    title={admins.length <= 1 ? "At least one admin is required" : "Delete Admin"}
+                                >
+                                    <FiTrash2 />
+                                </button>
+                            </div>
+                        ))}
                     </div>
-                    <div style={{ marginBottom: '30px' }}>
-                        <label style={labelStyle}>Access Password</label>
-                        <input required type="password" placeholder="••••••••" style={inputStyle} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-                    </div>
-                    <button className="btn-primary" style={{ width: '100%', padding: '15px' }}>Authorize New Admin</button>
-                </form>
+                    {admins.length === 1 && (
+                        <p style={{ fontSize: '0.7rem', color: '#ff4d4d', marginTop: '15px', textAlign: 'center' }}>
+                            ⚠️ At least one admin is required.
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );

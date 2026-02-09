@@ -1,24 +1,29 @@
 const mongoose = require('mongoose');
 
 const memberSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    rollNumber: { type: String, required: true },
-    phone: { type: String, required: true },
-    email: { type: String, required: true },
-    department: { type: String, required: true }
+    name: { type: String },
+    rollNumber: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    department: { type: String }
 });
 
 const participantSchema = new mongoose.Schema({
-    event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
+    events: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true }],
     teamName: { type: String },
     members: [memberSchema],
     college: {
         type: String,
-        enum: ['Engineering', 'Polytechnic', 'Arts & Science', 'Medical', 'Others'],
+        enum: ['Engineering', 'Polytechnic', 'Arts & Science', 'Medical', 'Dental', 'Pharmacy', 'Agriculture', 'Veterinary', 'Teacher Education', 'Others'],
         required: true
     },
     collegeName: { type: String, required: true },
+    collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
     transactionId: { type: String, required: true, unique: true },
+    paymentScreenshot: {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true }
+    },
     isVerified: { type: Boolean, default: false }
 }, { timestamps: true });
 

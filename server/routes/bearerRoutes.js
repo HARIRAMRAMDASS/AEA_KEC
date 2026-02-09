@@ -13,9 +13,13 @@ router.post('/', protect, upload.single('image'), asyncHandler(async (req, res) 
             throw new Error('Image is required');
         }
 
+        const { name, year } = req.body;
+
         const bearer = await OfficeBearer.create({
             imageUrl: req.file.path,
-            publicId: req.file.filename
+            publicId: req.file.filename,
+            name,
+            year
         });
 
         res.status(201).json(bearer);

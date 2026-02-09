@@ -18,9 +18,9 @@ const Navbar = () => {
 
     const navLinks = [
         { name: 'Home', path: '/' },
+        { name: 'Highlights', path: '/highlights' },
         { name: 'Register', path: '/register' },
         { name: 'Events', path: '/#events' },
-        { name: 'Office Bearers', path: '/#bearers' },
         { name: 'Admin', path: '/admin-login' },
     ];
 
@@ -56,30 +56,38 @@ const Navbar = () => {
             top: 0,
             width: '100%',
             zIndex: 1000,
-            padding: isScrolled ? '15px 5%' : '25px 5%',
-            background: isScrolled ? 'rgba(10, 10, 10, 0.8)' : 'transparent',
-            backdropFilter: isScrolled ? 'blur(10px)' : 'none',
-            borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            padding: isScrolled ? '12px 5%' : '20px 5%',
+            background: isScrolled ? 'rgba(10, 10, 10, 0.9)' : 'transparent',
+            backdropFilter: isScrolled ? 'blur(15px)' : 'none',
+            borderBottom: isScrolled ? '1px solid rgba(0, 161, 155, 0.3)' : 'none',
+            transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
         }}>
             <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '15px' }} onClick={(e) => handleNavClick(e, '/')}>
-                <img src="/AEA_logo.svg" alt="AEA Logo" style={{ width: '50px', height: '50px' }} />
-                <h2 style={{ fontSize: '1.5rem', margin: 0, color: 'white', letterSpacing: '2px' }}>AEA_KEC</h2>
+                <img
+                    src="/src/assets/logo.png"
+                    alt="Logo"
+                    onError={(e) => e.target.src = '/AEA_logo.svg'}
+                    style={{ width: '45px', filter: 'drop-shadow(0 0 10px rgba(0, 161, 155, 0.3))' }}
+                />
+                <h2 style={{ fontSize: '1.4rem', margin: 0, color: 'white', fontWeight: 900, letterSpacing: '4px', textTransform: 'uppercase' }}>
+                    AEA<span style={{ color: 'var(--mercedes-green)' }}>_KEC</span>
+                </h2>
             </Link>
 
             {/* Desktop Links */}
-            <div className="desktop-links" style={{ display: 'flex', gap: '30px' }}>
+            <div className="desktop-links" style={{ display: 'flex', gap: '35px', alignItems: 'center' }}>
                 {navLinks.map(link => (
                     <Link
                         key={link.name}
                         to={link.path}
                         onClick={(e) => handleNavClick(e, link.path)}
                         style={{
-                            color: 'white', textDecoration: 'none', fontWeight: 600,
-                            fontSize: '0.9rem', textTransform: 'uppercase', transition: '0.3s'
+                            color: 'white', textDecoration: 'none', fontWeight: 700,
+                            fontSize: '0.8rem', textTransform: 'uppercase', transition: '0.3s',
+                            letterSpacing: '1.5px', position: 'relative'
                         }}
                         onMouseOver={(e) => e.target.style.color = 'var(--mercedes-green)'}
                         onMouseOut={(e) => e.target.style.color = 'white'}
