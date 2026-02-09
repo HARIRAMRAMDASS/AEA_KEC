@@ -12,7 +12,8 @@ const AdminLogin = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    // Use relative path '/api' in production (served by same backend) or fully qualified for local dev
+    const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api');
 
     const handleLogin = async (e) => {
         e.preventDefault();
