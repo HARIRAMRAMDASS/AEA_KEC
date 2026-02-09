@@ -14,7 +14,8 @@ const Footer = () => {
             zIndex: 10
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <img src="/AEA_logo.svg" alt="AEA Logo" style={{ width: '30px', height: '30px' }} />
+                <img src="/KEC_LOGO (2).png" alt="KEC Logo" style={{ width: '30px', height: '30px' }} />
+                <img src="/aea_logo.png" alt="AEA Logo" style={{ width: '30px', height: '30px' }} />
                 <span style={{
                     fontFamily: 'Syncopate',
                     fontSize: '0.9rem',

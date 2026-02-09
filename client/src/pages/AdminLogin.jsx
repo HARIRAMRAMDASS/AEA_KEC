@@ -12,8 +12,7 @@ const AdminLogin = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    // Use relative path '/api' in production (served by same backend) or fully qualified for local dev
-    const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api');
+    const API_URL = '/api';
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -39,7 +38,10 @@ const AdminLogin = () => {
                 style={{ width: '100%', maxWidth: '400px' }}
             >
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                    <img src="/AEA_logo.svg" alt="AEA Logo" style={{ width: '80px', height: 'auto', marginBottom: '15px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+                        <img src="/KEC_LOGO (2).png" alt="KEC Logo" style={{ width: '80px', height: 'auto' }} />
+                        <img src="/aea_logo.png" alt="AEA Logo" style={{ width: '80px', height: 'auto' }} />
+                    </div>
                     <h2 style={{ textTransform: 'uppercase', letterSpacing: '2px' }}>Admin Portal</h2>
                 </div>
 

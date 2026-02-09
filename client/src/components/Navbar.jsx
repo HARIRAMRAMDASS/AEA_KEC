@@ -67,7 +67,16 @@ const Navbar = () => {
         }}>
             <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 15px)' }} onClick={(e) => handleNavClick(e, '/')}>
                 <img
-                    src="/AEA_logo.svg"
+                    src="/KEC_LOGO (2).png"
+                    alt="KEC Logo"
+                    style={{
+                        width: 'clamp(42px, 12vw, 55px)',
+                        height: 'auto',
+                        filter: 'drop-shadow(0 0 15px rgba(0, 161, 155, 0.4))'
+                    }}
+                />
+                <img
+                    src="/aea_logo.png"
                     alt="AEA KEC Logo"
                     style={{
                         width: 'clamp(42px, 12vw, 55px)',

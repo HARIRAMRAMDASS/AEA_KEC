@@ -10,8 +10,7 @@ const Home = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [events, setEvents] = useState([]);
 
-    // Use relative path '/api' in production (served by same backend) or fully qualified for local dev
-    const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api');
+    const API_URL = '/api';
 
     useEffect(() => {
         const timer = setTimeout(() => setIsLoading(false), 2000);

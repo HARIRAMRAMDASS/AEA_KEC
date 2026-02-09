@@ -61,19 +61,13 @@ app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/colleges', collegeRoutes);
 
-// Static file serving for production
-if (process.env.NODE_ENV === 'production') {
-    const clientPath = path.join(__dirname, '..', 'client', 'dist');
-    app.use(express.static(clientPath));
+// Static file serving – always serve the built frontend
+const clientPath = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientPath));
 
-    app.get('*', (req, res) =>
-        res.sendFile(path.join(clientPath, 'index.html'))
-    );
-} else {
-    app.get('/', (req, res) => {
-        res.send('API is running...');
-    });
-}
+app.get('*', (req, res) =>
+    res.sendFile(path.join(clientPath, 'index.html'))
+);
 
 // Seed Admin
 const seedAdmin = async () => {
