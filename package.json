@@ -1,0 +1,14 @@
+{
+    "name": "aea_kec-root",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "install-client": "cd client && npm install --include=dev",
+        "install-server": "cd server && npm install",
+        "build": "npm run install-server && npm run install-client && cd client && npm run build",
+        "start": "cd server && npm start"
+    },
+    "engines": {
+        "node": "20.x"
+    }
+}
