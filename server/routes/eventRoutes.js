@@ -135,43 +135,16 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         }
     });
 
-    // Send Emails
-    const emails = members.filter(m => m.email).map(m => m.email);
-    const eventNames = events.map(e => e.name).join(', ');
-
-    const emailData = {
-        to: emails,
-        subject: `Welcome to ${eventNames}`,
-        html: `
-            <div style="font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
-                <div style="background: #00A19B; color: white; padding: 20px; text-align: center;">
-                    <h1>Registration Confirmed!</h1>
-                </div>
-                <div style="padding: 30px;">
-                    <p>Hi Team,</p>
-                    <p>You have successfully registered for the following events:</p>
-                    <div style="background: #f9f9f9; padding: 20px; border-left: 5px solid #00A19B; margin: 20px 0;">
-                        <ul style="list-style: none; padding: 0; margin: 0;">
-                            ${events.map(e => `
-                                <li style="margin-bottom: 10px;">
-                                    <strong>${e.name}</strong><br/>
-                                    <small>Date: ${new Date(e.date).toLocaleDateString()} - ${new Date(e.date).toLocaleTimeString()}</small><br/>
-                                    <a href="${e.whatsappLink}" style="color: #00A19B; text-decoration: none; font-size: 0.9rem;">Join WhatsApp Group</a>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                    <p><strong>Transaction ID:</strong> ${transactionId}</p>
-                    <p>Please bring your college ID card for on-spot verification.</p>
-                    <br/>
-                    <p>Gear up for the grid!</p>
-                    <p>Regards,<br/><strong>AEA Team</strong></p>
-                </div>
-            </div>
-        `
+    // Send Confirmation Emails (Background Process)
+    // We send payload data to Google Apps Script which handles the HTML formatting and sending
+    const emailPayload = {
+        emails: members.filter(m => m.email).map(m => m.email),
+        eventName: events.map(e => e.name).join(' & '),
+        teamName: teamName || 'Individual',
+        collegeName: collegeName
     };
 
-    sendMail(emailData).catch(err => console.error('Background Email Error:', err));
+    sendMail(emailPayload).catch(err => console.error('Background Email Trigger Failed:', err));
 
     res.status(201).json(participant);
 }));
