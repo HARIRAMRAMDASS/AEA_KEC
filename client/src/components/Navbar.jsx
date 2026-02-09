@@ -67,10 +67,13 @@ const Navbar = () => {
         }}>
             <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '15px' }} onClick={(e) => handleNavClick(e, '/')}>
                 <img
-                    src="/src/assets/logo.png"
-                    alt="Logo"
-                    onError={(e) => e.target.src = '/AEA_logo.svg'}
-                    style={{ width: '45px', filter: 'drop-shadow(0 0 10px rgba(0, 161, 155, 0.3))' }}
+                    src="/AEA_logo.svg"
+                    alt="AEA KEC Logo"
+                    style={{
+                        width: '55px',
+                        height: 'auto',
+                        filter: 'drop-shadow(0 0 15px rgba(0, 161, 155, 0.4))'
+                    }}
                 />
                 <h2 style={{ fontSize: '1.4rem', margin: 0, color: 'white', fontWeight: 900, letterSpacing: '4px', textTransform: 'uppercase' }}>
                     AEA<span style={{ color: 'var(--mercedes-green)' }}>_KEC</span>

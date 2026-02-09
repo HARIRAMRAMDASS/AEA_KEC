@@ -1,5 +1,59 @@
-<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="100" cy="100" r="90" fill="none" stroke="#00A19B" stroke-width="10"/>
-  <path d="M50 150 L100 50 L150 150 M75 110 L125 110" fill="none" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="100" y="180" text-anchor="middle" fill="#00A19B" font-family="Syncopate" font-weight="bold" font-size="20">AEA KEC</text>
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Styles -->
+  <style>
+    .stroke { fill: none; stroke: white; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    .text { fill: white; font-family: 'Syncopate', sans-serif; font-weight: 900; }
+  </style>
+
+  <!-- Pistons at the bottom -->
+  <g transform="translate(100, 300) rotate(-45)">
+    <rect x="0" y="0" width="60" height="100" class="stroke" />
+    <circle cx="30" cy="30" r="15" class="stroke" />
+    <path d="M0 100 L-20 140 L80 140 L60 100" class="stroke" />
+  </g>
+  <g transform="translate(400, 300) scale(-1, 1) rotate(-45)">
+    <rect x="0" y="0" width="60" height="100" class="stroke" />
+    <circle cx="30" cy="30" r="15" class="stroke" />
+    <path d="M0 100 L-20 140 L80 140 L60 100" class="stroke" />
+  </g>
+
+  <!-- Large Center Gear -->
+  <circle cx="250" cy="220" r="90" class="stroke" stroke-dasharray="20 10" />
+  <circle cx="250" cy="220" r="70" class="stroke" />
+  
+  <!-- People silhouettes inside gear -->
+  <g transform="translate(205, 195) scale(0.6)">
+    <circle cx="25" cy="20" r="15" class="stroke" />
+    <path d="M10 70 Q25 40 40 70" class="stroke" />
+    <circle cx="75" cy="20" r="15" class="stroke" />
+    <path d="M60 70 Q75 40 90 70" class="stroke" />
+    <circle cx="50" cy="10" r="18" class="stroke" />
+    <path d="M30 75 Q50 35 70 75" class="stroke" />
+  </g>
+
+  <!-- Upper Icons -->
+  <!-- Brain/Head Profile -->
+  <g transform="translate(150, 50) scale(0.5)">
+    <path d="M50 0 Q0 0 0 50 Q0 100 50 100 L70 100 L100 130 L100 30 Q100 0 50 0" class="stroke" />
+    <path d="M30 40 L70 40 M30 60 L70 60" class="stroke" />
+  </g>
+  
+  <!-- Speedometer -->
+  <g transform="translate(250, 50) scale(0.5)">
+    <path d="M0 80 A 80 80 0 1 1 160 80" class="stroke" />
+    <line x1="80" y1="80" x2="120" y2="40" class="stroke" />
+  </g>
+
+  <!-- Small Gears -->
+  <g transform="translate(350, 80) scale(0.4)">
+    <circle cx="50" cy="50" r="40" class="stroke" stroke-dasharray="10 5" />
+    <circle cx="120" cy="120" r="30" class="stroke" stroke-dasharray="8 4" />
+  </g>
+
+  <!-- AEA Banner -->
+  <path d="M150 330 L350 330 L370 380 L130 380 Z" class="stroke" fill="rgba(255,255,255,0.1)" />
+  <text x="250" y="370" text-anchor="middle" font-size="45" class="text">AEA</text>
+
+  <!-- Bottom Text -->
+  <text x="250" y="430" text-anchor="middle" font-size="24" class="text" letter-spacing="4">VISION FOR INNOVATION</text>
 </svg>

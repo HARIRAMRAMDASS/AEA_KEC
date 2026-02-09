@@ -16,6 +16,15 @@ const College = require('./models/College');
 
 const app = express();
 
+// Validate critical environment variables
+if (!process.env.MONGO_URI) {
+    console.error('FATAL ERROR: MONGO_URI is not defined.');
+    process.exit(1);
+}
+if (!process.env.JWT_SECRET) {
+    console.warn('WARNING: JWT_SECRET is not defined. Admin authentication will fail.');
+}
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {

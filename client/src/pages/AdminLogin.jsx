@@ -38,8 +38,8 @@ const AdminLogin = () => {
                 style={{ width: '100%', maxWidth: '400px' }}
             >
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                    <div style={{ width: '60px', height: '60px', background: 'var(--mercedes-green)', borderRadius: '50%', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>A</div>
-                    <h2>Admin Portal</h2>
+                    <img src="/AEA_logo.svg" alt="AEA Logo" style={{ width: '80px', height: 'auto', marginBottom: '15px' }} />
+                    <h2 style={{ textTransform: 'uppercase', letterSpacing: '2px' }}>Admin Portal</h2>
                 </div>
 
                 <form onSubmit={handleLogin}>

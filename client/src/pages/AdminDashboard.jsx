@@ -54,7 +54,7 @@ const AdminDashboard = () => {
             toast.success('Deleted successfully');
             fetchData();
         } catch (err) {
-            toast.error('Deletion failed');
+            toast.error(err.response?.data?.message || 'Deletion failed');
         }
     };
 
@@ -97,8 +97,9 @@ const AdminDashboard = () => {
                 transition: 'transform 0.3s ease',
                 transform: `translateX(${isSidebarOpen ? '0' : window.innerWidth < 768 ? '-100%' : '0'})`
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '50px', justifyContent: 'center' }}>
-                    <h2 style={{ color: 'var(--mercedes-green)', fontSize: '1rem', margin: 0 }}>CONTROL TOWER</h2>
+                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                    <img src="/AEA_logo.svg" alt="AEA Logo" style={{ width: '60px', height: 'auto', marginBottom: '15px' }} />
+                    <h2 style={{ color: 'var(--mercedes-green)', fontSize: '1rem', margin: 0, letterSpacing: '2px' }}>CONTROL TOWER</h2>
                 </div>
 
                 <SidebarLink active={activeTab === 'events'} icon={<FiCalendar />} label="Events" onClick={() => { setActiveTab('events'); setIsSidebarOpen(false); }} />
