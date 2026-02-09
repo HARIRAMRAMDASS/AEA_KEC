@@ -39,9 +39,14 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
         throw new Error('Video not found');
     }
 
-    await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+    try {
+        if (video.publicId) {
+            await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+        }
+    } catch (err) {
+        console.error('Cloudinary video delete error:', err);
+    }
     await video.deleteOne();
-
     res.json({ message: 'Video removed' });
 }));
 

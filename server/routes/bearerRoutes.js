@@ -43,10 +43,16 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
         throw new Error('Office bearer not found');
     }
 
-    await cloudinary.uploader.destroy(bearer.publicId);
-    await bearer.deleteOne();
+    try {
+        if (bearer.publicId) {
+            await cloudinary.uploader.destroy(bearer.publicId);
+        }
+    } catch (err) {
+        console.error('Cloudinary delete error:', err);
+    }
 
-    res.json({ message: 'Image removed' });
+    await bearer.deleteOne();
+    res.json({ message: 'Office bearer removed' });
 }));
 
 module.exports = router;

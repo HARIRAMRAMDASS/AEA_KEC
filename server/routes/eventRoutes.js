@@ -67,10 +67,16 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
         throw new Error('Event not found');
     }
 
-    // Delete image from cloudinary
-    await cloudinary.uploader.destroy(event.qrCode.publicId);
-    await event.deleteOne();
+    // Delete image from cloudinary (optional failure)
+    try {
+        if (event.qrCode && event.qrCode.publicId) {
+            await cloudinary.uploader.destroy(event.qrCode.publicId);
+        }
+    } catch (cloudinaryErr) {
+        console.error('Cloudinary deletion failed:', cloudinaryErr);
+    }
 
+    await event.deleteOne();
     res.json({ message: 'Event removed' });
 }));
 
