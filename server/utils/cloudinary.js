@@ -1,6 +1,6 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const streamifier = require('streamifier');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -8,14 +8,21 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'aea_kec',
-        resource_type: 'auto'
-    }
-});
+// Memory storage — NO disk writes, Render-safe
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-const upload = multer({ storage: storage });
+// Reusable helper: upload buffer to Cloudinary via stream
+const uploadToCloudinary = (buffer, folder, resourceType = 'auto') =>
+    new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder, resource_type: resourceType },
+            (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+            }
+        );
+        streamifier.createReadStream(buffer).pipe(stream);
+    });
 
-module.exports = { cloudinary, upload };
+module.exports = { cloudinary, upload, uploadToCloudinary };

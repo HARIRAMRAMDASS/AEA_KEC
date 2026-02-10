@@ -3,21 +3,26 @@ const router = express.Router();
 const OfficeBearer = require('../models/OfficeBearer');
 const asyncHandler = require('express-async-handler');
 const { protect } = require('../middleware/authMiddleware');
-const { upload, cloudinary } = require('../utils/cloudinary');
+const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary');
 
 // @desc Add office bearer image
 router.post('/', protect, upload.single('image'), asyncHandler(async (req, res) => {
     try {
+        console.log("BEARER UPLOAD HIT");
+        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+
         if (!req.file) {
-            res.status(400);
-            throw new Error('Image is required');
+            return res.status(400).json({ message: 'Image is required' });
         }
 
         const { name, year } = req.body;
 
+        // Upload buffer to Cloudinary
+        const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/bearers');
+
         const bearer = await OfficeBearer.create({
-            imageUrl: req.file.path,
-            publicId: req.file.filename,
+            imageUrl: uploaded.secure_url,
+            publicId: uploaded.public_id,
             name,
             year
         });

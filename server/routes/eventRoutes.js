@@ -4,7 +4,7 @@ const Event = require('../models/Event');
 const Participant = require('../models/Participant');
 const asyncHandler = require('express-async-handler');
 const { protect } = require('../middleware/authMiddleware');
-const { upload, cloudinary } = require('../utils/cloudinary');
+const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary');
 const { sendMail } = require('../utils/mailService');
 const xlsx = require('xlsx');
 
@@ -12,14 +12,16 @@ const xlsx = require('xlsx');
 router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
     try {
         console.log("EVENT CREATE HIT", req.body);
-        console.log("Create Event Payload:", req.body);
-        console.log("Create Event File:", req.file ? req.file.filename : 'No File');
+        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+
         const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
 
         if (!req.file) {
-            res.status(400);
-            throw new Error('QR Code image is required');
+            return res.status(400).json({ message: 'QR Code image is required' });
         }
+
+        // Upload buffer to Cloudinary
+        const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events');
 
         const event = await Event.create({
             name,
@@ -30,8 +32,8 @@ router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res)
             feeAmount,
             closingDate,
             qrCode: {
-                url: req.file.path,
-                publicId: req.file.filename
+                url: uploaded.secure_url,
+                publicId: uploaded.public_id
             },
             whatsappLink,
             maxSelectableEvents,
@@ -120,9 +122,11 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
     }
 
     if (!req.file) {
-        res.status(400);
-        throw new Error('Payment screenshot is mandatory');
+        return res.status(400).json({ message: 'Payment screenshot is mandatory' });
     }
+
+    // Upload buffer to Cloudinary
+    const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/payments');
 
     const participant = await Participant.create({
         events: eventIds,
@@ -133,13 +137,12 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         collegeId: collegeId || null,
         transactionId,
         paymentScreenshot: {
-            url: req.file.path,
-            publicId: req.file.filename
+            url: uploaded.secure_url,
+            publicId: uploaded.public_id
         }
     });
 
     // Send Confirmation Emails (Background Process)
-    // We send payload data to Google Apps Script which handles the HTML formatting and sending
     const emailPayload = {
         emails: members.filter(m => m.email).map(m => m.email),
         eventName: events.map(e => e.name).join(' & '),

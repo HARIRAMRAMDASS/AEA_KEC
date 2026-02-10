@@ -3,19 +3,24 @@ const router = express.Router();
 const Video = require('../models/Video');
 const asyncHandler = require('express-async-handler');
 const { protect } = require('../middleware/authMiddleware');
-const { upload, cloudinary } = require('../utils/cloudinary');
+const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary');
 
 // @desc Add video
 router.post('/', protect, upload.single('video'), asyncHandler(async (req, res) => {
     try {
+        console.log("VIDEO UPLOAD HIT");
+        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+
         if (!req.file) {
-            res.status(400);
-            throw new Error('Video is required');
+            return res.status(400).json({ message: 'Video is required' });
         }
 
+        // Upload buffer to Cloudinary as video
+        const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/videos', 'video');
+
         const video = await Video.create({
-            videoUrl: req.file.path,
-            publicId: req.file.filename
+            videoUrl: uploaded.secure_url,
+            publicId: uploaded.public_id
         });
 
         res.status(201).json(video);
