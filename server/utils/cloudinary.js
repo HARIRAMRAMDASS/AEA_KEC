@@ -15,13 +15,21 @@ const upload = multer({ storage });
 // Reusable helper: upload buffer to Cloudinary via stream
 const uploadToCloudinary = (buffer, folder, resourceType = 'auto') =>
     new Promise((resolve, reject) => {
+        console.log(`[CLOUDINARY] Starting upload to folder: ${folder}, resourceType: ${resourceType}, bufferSize: ${buffer.length} bytes`);
+        
         const stream = cloudinary.uploader.upload_stream(
             { folder, resource_type: resourceType },
             (error, result) => {
-                if (error) reject(error);
-                else resolve(result);
+                if (error) {
+                    console.error(`[CLOUDINARY] Upload FAILED:`, error);
+                    reject(error);
+                } else {
+                    console.log(`[CLOUDINARY] Upload SUCCESS: ${result.public_id}`);
+                    resolve(result);
+                }
             }
         );
+        
         streamifier.createReadStream(buffer).pipe(stream);
     });
 

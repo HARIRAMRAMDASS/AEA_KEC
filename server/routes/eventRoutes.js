@@ -11,8 +11,14 @@ const xlsx = require('xlsx');
 // @desc Create a new event
 router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
     try {
-        console.log("EVENT CREATE HIT", req.body);
-        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+        console.log("=== EVENT CREATION REQUEST ===");
+        console.log("REQ BODY:", req.body);
+        console.log("REQ FILE:", req.file ? { 
+            originalname: req.file.originalname, 
+            mimetype: req.file.mimetype, 
+            size: req.file.size, 
+            hasBuffer: !!req.file.buffer 
+        } : 'NO FILE RECEIVED');
 
         const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
 
@@ -20,8 +26,10 @@ router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res)
             return res.status(400).json({ message: 'QR Code image is required' });
         }
 
+        console.log("UPLOADING QR CODE TO CLOUDINARY...");
         // Upload buffer to Cloudinary
         const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events');
+        console.log("QR CODE UPLOAD SUCCESS:", { url: uploaded.secure_url, publicId: uploaded.public_id });
 
         const event = await Event.create({
             name,
@@ -41,6 +49,7 @@ router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res)
             eventGroup
         });
 
+        console.log("EVENT CREATED:", event._id);
         res.status(201).json(event);
     } catch (error) {
         console.error('Event Creation Error:', error);
@@ -87,11 +96,23 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
 
 // @desc Register for an event(s)
 router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
+    console.log("=== REGISTRATION REQUEST ===");
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file ? { 
+        originalname: req.file.originalname, 
+        mimetype: req.file.mimetype, 
+        size: req.file.size, 
+        hasBuffer: !!req.file.buffer 
+    } : 'NO FILE RECEIVED');
+    
     let { teamName, members, college, collegeName, transactionId, eventIds, collegeId } = req.body;
 
     // Parse members and eventIds if they come as strings (common with FormData)
     if (typeof members === 'string') members = JSON.parse(members);
     if (typeof eventIds === 'string') eventIds = JSON.parse(eventIds);
+
+    console.log("PARSED MEMBERS:", members);
+    console.log("PARSED EVENT IDS:", eventIds);
 
     if (!eventIds || eventIds.length === 0) {
         res.status(400);
@@ -122,11 +143,14 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
     }
 
     if (!req.file) {
+        console.error("CRITICAL ERROR: NO FILE IN REQUEST");
         return res.status(400).json({ message: 'Payment screenshot is mandatory' });
     }
 
+    console.log("UPLOADING TO CLOUDINARY...");
     // Upload buffer to Cloudinary
     const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/payments');
+    console.log("CLOUDINARY UPLOAD RESULT:", { secure_url: uploaded.secure_url, public_id: uploaded.public_id });
 
     const participant = await Participant.create({
         events: eventIds,

@@ -8,21 +8,24 @@ const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary'
 // @desc Add video
 router.post('/', protect, upload.single('video'), asyncHandler(async (req, res) => {
     try {
-        console.log("VIDEO UPLOAD HIT");
-        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+        console.log("=== VIDEO UPLOAD REQUEST ===");
+        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, hasBuffer: !!req.file.buffer } : 'NO FILE RECEIVED');
 
         if (!req.file) {
             return res.status(400).json({ message: 'Video is required' });
         }
 
+        console.log("UPLOADING VIDEO TO CLOUDINARY...");
         // Upload buffer to Cloudinary as video
         const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/videos', 'video');
+        console.log("VIDEO UPLOAD SUCCESS:", { url: uploaded.secure_url, publicId: uploaded.public_id });
 
         const video = await Video.create({
             videoUrl: uploaded.secure_url,
             publicId: uploaded.public_id
         });
 
+        console.log("VIDEO CREATED:", video._id);
         res.status(201).json(video);
     } catch (error) {
         console.error('Video Upload Error:', error);

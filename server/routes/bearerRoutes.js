@@ -8,8 +8,8 @@ const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary'
 // @desc Add office bearer image
 router.post('/', protect, upload.single('image'), asyncHandler(async (req, res) => {
     try {
-        console.log("BEARER UPLOAD HIT");
-        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No File');
+        console.log("=== BEARER UPLOAD REQUEST ===");
+        console.log("REQ FILE:", req.file ? { originalname: req.file.originalname, size: req.file.size, hasBuffer: !!req.file.buffer } : 'NO FILE RECEIVED');
 
         if (!req.file) {
             return res.status(400).json({ message: 'Image is required' });
@@ -17,8 +17,10 @@ router.post('/', protect, upload.single('image'), asyncHandler(async (req, res) 
 
         const { name, year } = req.body;
 
+        console.log("UPLOADING BEARER IMAGE TO CLOUDINARY...");
         // Upload buffer to Cloudinary
         const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/bearers');
+        console.log("BEARER IMAGE UPLOAD SUCCESS:", { url: uploaded.secure_url, publicId: uploaded.public_id });
 
         const bearer = await OfficeBearer.create({
             imageUrl: uploaded.secure_url,
@@ -27,6 +29,7 @@ router.post('/', protect, upload.single('image'), asyncHandler(async (req, res) 
             year
         });
 
+        console.log("BEARER CREATED:", bearer._id);
         res.status(201).json(bearer);
     } catch (error) {
         console.error('Bearer Upload Error:', error);
