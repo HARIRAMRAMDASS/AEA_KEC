@@ -111,6 +111,40 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Event removed' });
 }));
 
+// @desc Update Event QR Code
+router.put('/:id/qr', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+        res.status(404);
+        throw new Error('Event not found');
+    }
+
+    if (!req.file) {
+        res.status(400);
+        throw new Error('No image file provided');
+    }
+
+    // Delete old QR from Cloudinary
+    if (event.qrCode && event.qrCode.publicId) {
+        try {
+            await cloudinary.uploader.destroy(event.qrCode.publicId);
+        } catch (err) {
+            console.error('Failed to delete old QR:', err);
+        }
+    }
+
+    // Upload new QR
+    const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events');
+
+    event.qrCode = {
+        url: uploaded.secure_url,
+        publicId: uploaded.public_id
+    };
+
+    await event.save();
+    res.json(event);
+}));
+
 // @desc Register for an event(s)
 router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
     console.log("=== REGISTRATION REQUEST ===");

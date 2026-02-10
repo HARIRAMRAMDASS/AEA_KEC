@@ -181,9 +181,31 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra'
     });
     const [qrFile, setQrFile] = useState(null);
+    const [editingQrEvent, setEditingQrEvent] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const API_URL = '/api';
+
+    const handleUpdateQr = async (e) => {
+        e.preventDefault();
+        if (!qrFile) return toast.error('Please select a new QR image');
+        setLoading(true);
+
+        const formData = new FormData();
+        formData.append('qrCode', qrFile);
+
+        try {
+            await axios.put(`${API_URL}/events/${editingQrEvent._id}/qr`, formData, { withCredentials: true });
+            toast.success('QR Code updated successfully');
+            setEditingQrEvent(null);
+            setQrFile(null);
+            onRefresh();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Update failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -247,6 +269,29 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                     <button className="btn-primary" onClick={() => setShowForm(!showForm)}><FiPlus /> {showForm ? 'Back to List' : 'Create Event'}</button>
                 </div>
             </div>
+
+            {/* Edit QR Modal */}
+            {editingQrEvent && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div className="glass-card" style={{ width: '100%', maxWidth: '400px', position: 'relative' }}>
+                        <button onClick={() => { setEditingQrEvent(null); setQrFile(null); }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}><FiX /></button>
+                        <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Update QR Code</h3>
+
+                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                            <p style={{ opacity: 0.7, marginBottom: '10px' }}>Current QR:</p>
+                            <img src={editingQrEvent.qrCode?.url} alt="Current QR" style={{ width: '150px', borderRadius: '10px' }} />
+                        </div>
+
+                        <form onSubmit={handleUpdateQr}>
+                            <div style={{ border: '1px dashed rgba(255,255,255,0.2)', padding: '20px', borderRadius: '10px', textAlign: 'center', marginBottom: '20px' }}>
+                                <input required type="file" onChange={e => setQrFile(e.target.files[0])} accept="image/*" />
+                                {qrFile && <p style={{ fontSize: '0.8rem', marginTop: '10px', color: 'var(--mercedes-green)' }}>Selected: {qrFile.name}</p>}
+                            </div>
+                            <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '12px' }}>{loading ? 'Updating...' : 'Upload New QR'}</button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {showForm ? (
                 <div className="glass-card" style={{ border: '2px solid var(--mercedes-green)' }}>
@@ -400,6 +445,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button onClick={() => onExport(ev._id)} style={actionBtnStyle('var(--mercedes-green)')}><FiDownload /> Excel</button>
+                                <button onClick={() => { setEditingQrEvent(ev); setQrFile(null); }} style={actionBtnStyle('#FFA500')}><FiImage /> Edit QR</button>
                                 <button onClick={() => onDelete(ev._id)} style={actionBtnStyle('#ff4d4d')}><FiTrash2 /> Delete</button>
                             </div>
                         </div>
