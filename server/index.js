@@ -5,18 +5,26 @@ dotenv.config();
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
+
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const bearerRoutes = require('./routes/bearerRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const collegeRoutes = require('./routes/collegeRoutes');
+
 const Admin = require('./models/Admin');
 const College = require('./models/College');
 
 const app = express();
 
-// Validate critical environment variables
+// ---------- BASIC MIDDLEWARE ----------
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cookieParser());
+app.use(cors()); // Simple — frontend & backend on same domain, no complex origin checks needed
+
+// ---------- DATABASE ----------
 if (!process.env.MONGO_URI) {
     console.error('FATAL ERROR: MONGO_URI is not defined.');
     process.exit(1);
@@ -28,52 +36,46 @@ if (!process.env.APPSCRIPT_URL) {
     console.warn('⚠️ WARNING: APPSCRIPT_URL is missing. Email confirmations will NOT work.');
 }
 
-// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log('MongoDB Connected');
         seedAdmin();
         seedColleges();
     })
-    .catch(err => console.log(err));
+    .catch(err => console.error(err));
 
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        // Allow localhost and Render domains
-        if (origin.indexOf('localhost') !== -1 || origin.indexOf('onrender.com') !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(cookieParser());
-
-// Routes
+// ---------- API ROUTES (MUST COME FIRST) ----------
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/colleges', collegeRoutes);
 
-// Static file serving – always serve the built frontend
+// ---------- ERROR HANDLING (for API routes) ----------
+app.use(notFound);
+app.use(errorHandler);
+
+// ---------- STATIC FRONTEND ----------
 const clientPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientPath));
 
-app.get('*', (req, res) =>
-    res.sendFile(path.join(clientPath, 'index.html'))
-);
+// ---------- REACT FALLBACK (SAFE – protects /api from HTML responses) ----------
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ message: 'API route not found' });
+    }
+    res.sendFile(path.join(clientPath, 'index.html'));
+});
 
-// Seed Admin
-const seedAdmin = async () => {
+// ---------- START ----------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// ---------- SEEDERS (idempotent – safe to run on every restart) ----------
+async function seedAdmin() {
     try {
-        const adminExists = await Admin.findOne({ email: 'ramdasshariram@gmail.com' });
-        if (!adminExists) {
+        const exists = await Admin.findOne({ email: 'ramdasshariram@gmail.com' });
+        if (!exists) {
             await Admin.create({
                 email: 'ramdasshariram@gmail.com',
                 password: 'hari567@4'
@@ -83,10 +85,9 @@ const seedAdmin = async () => {
     } catch (error) {
         console.error('Admin seeding failed:', error);
     }
-};
+}
 
-// Seed Colleges (Tamil Nadu Extensive List)
-const seedColleges = async () => {
+async function seedColleges() {
     try {
         const count = await College.countDocuments();
         if (count > 0) return;
@@ -141,11 +142,4 @@ const seedColleges = async () => {
     } catch (error) {
         console.error('College seeding failed:', error);
     }
-};
-
-// Middleware
-app.use(notFound);
-app.use(errorHandler);
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
