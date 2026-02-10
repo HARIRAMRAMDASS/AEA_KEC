@@ -9,16 +9,23 @@ const { sendMail } = require('../utils/mailService');
 const xlsx = require('xlsx');
 
 // @desc Create a new event
-router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
+router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
+    if (err) {
+        console.error("[MULTER ERROR] File upload failed:", err.message);
+        return res.status(400).json({ message: `Upload error: ${err.message}` });
+    }
+    next();
+}, asyncHandler(async (req, res) => {
     try {
         console.log("=== EVENT CREATION REQUEST ===");
+        console.log("CONTENT-TYPE RECEIVED:", req.headers['content-type']);
         console.log("REQ BODY:", req.body);
         console.log("REQ FILE:", req.file ? { 
             originalname: req.file.originalname, 
             mimetype: req.file.mimetype, 
             size: req.file.size, 
             hasBuffer: !!req.file.buffer 
-        } : 'NO FILE RECEIVED');
+        } : 'NO FILE RECEIVED - CHECK HEADERS ABOVE');
 
         const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
 
