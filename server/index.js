@@ -69,7 +69,10 @@ app.use(errorHandler);
 
 // ---------- START ----------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Build Version: v1.2.1 (Verification Update)`);
+});
 
 // ---------- SEEDERS (idempotent – safe to run on every restart) ----------
 async function seedAdmin() {

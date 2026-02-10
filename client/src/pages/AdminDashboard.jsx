@@ -140,7 +140,7 @@ const AdminDashboard = () => {
                     justifyContent: 'space-between'
                 }}>
                     <div onClick={() => setIsSidebarOpen(true)} style={{ fontSize: '1.5rem', cursor: 'pointer' }}><FiMenu /></div>
-                    <span style={{ fontFamily: 'Syncopate', fontSize: '0.8rem', color: 'var(--mercedes-green)' }}>Admin Panel</span>
+                    <span style={{ fontFamily: 'Syncopate', fontSize: '0.8rem', color: 'var(--mercedes-green)' }}>Admin Panel <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '5px' }}>v1.2.1</span></span>
                     <div style={{ width: '24px' }}></div>
                 </div>
 
