@@ -97,13 +97,13 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
 // @desc Register for an event(s)
 router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
     console.log("=== REGISTRATION REQUEST ===");
-    console.log("BODY:", req.body);
-    console.log("FILE:", req.file ? { 
+    console.log("REQ BODY:", req.body);
+    console.log("REQ FILE:", req.file ? { 
         originalname: req.file.originalname, 
         mimetype: req.file.mimetype, 
         size: req.file.size, 
         hasBuffer: !!req.file.buffer 
-    } : 'NO FILE RECEIVED');
+    } : 'NO FILE RECEIVED - THIS IS THE PROBLEM');
     
     let { teamName, members, college, collegeName, transactionId, eventIds, collegeId } = req.body;
 

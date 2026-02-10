@@ -195,7 +195,9 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         data.append('qrCode', qrFile);
 
         try {
-            await axios.post(`${API_URL}/events`, data, { withCredentials: true });
+            await axios.post(`${API_URL}/events`, data, { 
+                withCredentials: true
+            });
             toast.success('Event Created');
             setShowForm(false);
             setFormData({ name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra' });
@@ -352,7 +354,9 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
         }
 
         try {
-            await axios.post(`${API_URL}/${type}`, formData, { withCredentials: true });
+            await axios.post(`${API_URL}/${type}`, formData, { 
+                withCredentials: true
+            });
             toast.success('Successfully uploaded to server');
             setFile(null);
             setName('');

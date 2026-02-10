@@ -90,7 +90,7 @@ const RegistrationForm = () => {
 
             // Post to backend registration endpoint
             const response = await axios.post('/api/events/register', submitData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                withCredentials: true
             });
 
             console.log("Registration response:", response.data);
