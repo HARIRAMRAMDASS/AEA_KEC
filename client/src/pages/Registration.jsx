@@ -191,7 +191,7 @@ const Registration = () => {
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '40px' }}>
                         <label className="label-text">CHOOSE YOUR RACE <span style={{ color: 'var(--mercedes-green)' }}>(Max {maxAllowed})</span></label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '15px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '15px' }}>
                             {events.map(ev => {
                                 const passed = new Date() > new Date(ev.closingDate);
                                 const selected = selectedEventIds.includes(ev._id);
@@ -214,11 +214,13 @@ const Registration = () => {
 
                     {selectedEventIds.length > 0 && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginBottom: '30px' }}>
-                                <div>
-                                    <label style={labelStyle}>Team Name (Optional)</label>
-                                    <input type="text" style={inputStyle} value={formData.teamName} onChange={(e) => setFormData({ ...formData, teamName: e.target.value })} />
-                                </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '25px', marginBottom: '30px' }}>
+                                {maxTeamSize > 1 && (
+                                    <div>
+                                        <label style={labelStyle}>Team Name (Mandatory for Teams)</label>
+                                        <input type="text" style={inputStyle} value={formData.teamName} onChange={(e) => setFormData({ ...formData, teamName: e.target.value })} />
+                                    </div>
+                                )}
 
                                 <div style={{ gridColumn: '1 / -1', position: 'relative' }} ref={searchRef}>
                                     <label style={labelStyle}>College Name (Search Tamil Nadu Database) *</label>
@@ -309,11 +311,11 @@ const Registration = () => {
 
                             <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '40px 0' }} />
 
-                            <h3 style={{ marginBottom: '30px', color: 'var(--mercedes-green)', letterSpacing: '2px' }}>CREW DETAILS</h3>
+                            <h3 style={{ marginBottom: '30px', color: 'var(--mercedes-green)', letterSpacing: '2px' }}>{maxTeamSize > 1 ? 'CREW DETAILS' : 'PARTICIPANT DETAILS'}</h3>
                             {formData.members.map((member, index) => (
                                 <div key={index} style={{ marginBottom: '30px', padding: '25px', background: 'rgba(255,255,255,0.02)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <h4 style={{ marginBottom: '20px', fontSize: '0.9rem', opacity: 0.8, textTransform: 'uppercase' }}>
-                                        Member {index + 1} {index === 0 ? <span style={{ color: 'var(--mercedes-green)' }}>— Lead Driver</span> : ''}
+                                        {maxTeamSize > 1 ? `Member ${index + 1}` : 'Participant Details'} {index === 0 && maxTeamSize > 1 ? <span style={{ color: 'var(--mercedes-green)' }}>— Lead Driver</span> : ''}
                                     </h4>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
                                         <input required={index === 0} placeholder="Full Name" style={inputStyle} value={member.name} onChange={(e) => handleMemberChange(index, 'name', e.target.value)} />

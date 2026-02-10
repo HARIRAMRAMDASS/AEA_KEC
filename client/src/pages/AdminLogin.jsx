@@ -30,7 +30,7 @@ const AdminLogin = () => {
     };
 
     return (
-        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0A0A0A' }}>
+        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0A0A0A', padding: '20px' }}>
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -39,7 +39,7 @@ const AdminLogin = () => {
             >
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
-                        <img src="/KEC_LOGO (2).png" alt="KEC Logo" style={{ width: '80px', height: 'auto' }} />
+                        <img src="/KEC_LOGO (3).png" alt="KEC Logo" style={{ width: '80px', height: 'auto' }} />
                         <img src="/aea_logo.png" alt="AEA Logo" style={{ width: '80px', height: 'auto' }} />
                     </div>
                     <h2 style={{ textTransform: 'uppercase', letterSpacing: '2px' }}>Admin Portal</h2>

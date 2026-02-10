@@ -20,7 +20,7 @@ const Highlights = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
-                    <h1 style={{ color: '#000', fontSize: '3.5rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-2px' }}>
+                    <h1 style={{ color: '#000', fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-2px' }}>
                         The <span style={{ color: 'var(--mercedes-green)' }}>AEA</span> Chronicles
                     </h1>
                     <p style={{ color: '#666', fontSize: '1.2rem', maxWidth: '700px', margin: '20px auto' }}>

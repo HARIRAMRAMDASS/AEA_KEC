@@ -21,7 +21,6 @@ const Navbar = () => {
         { name: 'Highlights', path: '/highlights' },
         { name: 'Register', path: '/register' },
         { name: 'Events', path: '/#events' },
-        { name: 'Admin', path: '/admin-login' },
     ];
 
     const handleNavClick = (e, path) => {
@@ -67,7 +66,7 @@ const Navbar = () => {
         }}>
             <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 15px)' }} onClick={(e) => handleNavClick(e, '/')}>
                 <img
-                    src="/KEC_LOGO (2).png"
+                    src="/KEC_LOGO (3).png"
                     alt="KEC Logo"
                     style={{
                         width: 'clamp(42px, 12vw, 55px)',

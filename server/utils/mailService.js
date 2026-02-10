@@ -15,7 +15,7 @@
  * @param {string} data.teamName - Name of the team
  * @param {string} data.collegeName - Name of the college
  */
-const sendMail = async ({ emails, eventName, teamName, collegeName }) => {
+const sendMail = async ({ emails, eventName, teamName, collegeName, verificationCode }) => {
     // 1. READ URL AT RUNTIME
     let scriptUrl = process.env.APPSCRIPT_URL;
 
@@ -42,7 +42,8 @@ const sendMail = async ({ emails, eventName, teamName, collegeName }) => {
                 emails,
                 eventName,
                 teamName,
-                collegeName
+                collegeName,
+                verificationCode
             }),
         });
 

@@ -23,7 +23,11 @@ const eventSchema = new mongoose.Schema({
         type: String,
         enum: ['Zhakra', 'Auto Expo'],
         default: 'Zhakra'
-    }
+    },
+    details: [{
+        title: { type: String, required: true },
+        value: { type: String, required: true }
+    }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Event', eventSchema);

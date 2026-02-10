@@ -99,7 +99,7 @@ const AdminDashboard = () => {
             }}>
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                        <img src="/KEC_LOGO (2).png" alt="KEC Logo" style={{ width: '60px', height: 'auto' }} />
+                        <img src="/KEC_LOGO (3).png" alt="KEC Logo" style={{ width: '60px', height: 'auto' }} />
                         <img src="/aea_logo.png" alt="AEA Logo" style={{ width: '60px', height: 'auto' }} />
                     </div>
                     <h2 style={{ color: 'var(--mercedes-green)', fontSize: '1rem', margin: 0, letterSpacing: '2px' }}>CONTROL TOWER</h2>
@@ -191,16 +191,27 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         if (!qrFile) return toast.error('QR Code is required');
         setLoading(true);
         const data = new FormData();
-        Object.keys(formData).forEach(key => data.append(key, formData[key]));
+        Object.keys(formData).forEach(key => {
+            if (key === 'details') {
+                data.append('details', JSON.stringify(formData[key]));
+            } else {
+                data.append(key, formData[key]);
+            }
+        });
+
         data.append('qrCode', qrFile);
 
         try {
-            await axios.post(`${API_URL}/events`, data, { 
+            await axios.post(`${API_URL}/events`, data, {
                 withCredentials: true
             });
             toast.success('Event Created');
             setShowForm(false);
-            setFormData({ name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra' });
+            setFormData({
+                name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1,
+                closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both',
+                eventGroup: 'Zhakra', details: []
+            });
             setQrFile(null);
             onRefresh();
         } catch (err) {
@@ -239,11 +250,33 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
             {showForm ? (
                 <div className="glass-card" style={{ border: '2px solid var(--mercedes-green)' }}>
-                    <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+                        <div>
+                            <label style={labelStyle}>Event Group</label>
+                            <select
+                                style={inputStyle}
+                                value={formData.eventGroup}
+                                onChange={e => {
+                                    const group = e.target.value;
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        eventGroup: group,
+                                        teamSize: group === 'Auto Expo' ? 1 : prev.teamSize,
+                                        maxSelectableEvents: group === 'Auto Expo' ? 1 : prev.maxSelectableEvents,
+                                        selectionMode: group === 'Auto Expo' ? 'Both' : prev.selectionMode
+                                    }));
+                                }}
+                            >
+                                <option>Zhakra</option>
+                                <option>Auto Expo</option>
+                            </select>
+                        </div>
+
                         <div>
                             <label style={labelStyle}>Event Name</label>
                             <input required placeholder="Name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                         </div>
+
                         <div>
                             <label style={labelStyle}>Category</label>
                             <select style={inputStyle} value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
@@ -251,18 +284,40 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                                 <option>Non-Tech</option>
                             </select>
                         </div>
+
                         <div>
                             <label style={labelStyle}>Event Date & Time</label>
                             <input required type="datetime-local" style={inputStyle} value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                         </div>
+
                         <div>
                             <label style={labelStyle}>Registration Deadline</label>
                             <input required type="datetime-local" style={inputStyle} value={formData.closingDate} onChange={e => setFormData({ ...formData, closingDate: e.target.value })} />
                         </div>
-                        <div>
-                            <label style={labelStyle}>Max Team Size</label>
-                            <input required type="number" min="1" style={inputStyle} value={formData.teamSize} onChange={e => setFormData({ ...formData, teamSize: e.target.value })} />
-                        </div>
+
+                        {/* DYNAMIC FIELDS FOR ZHAKRA / TEAM EVENTS */}
+                        {formData.eventGroup === 'Zhakra' && (
+                            <>
+                                <div>
+                                    <label style={labelStyle}>Max Team Size</label>
+                                    <input required type="number" min="1" style={inputStyle} value={formData.teamSize} onChange={e => setFormData({ ...formData, teamSize: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Max Selectable Events</label>
+                                    <input required type="number" min="1" style={inputStyle} value={formData.maxSelectableEvents} onChange={e => setFormData({ ...formData, maxSelectableEvents: e.target.value })} />
+                                    <small style={{ fontSize: '0.7rem', opacity: 0.5 }}>Events per registration</small>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Selection Mode</label>
+                                    <select style={inputStyle} value={formData.selectionMode} onChange={e => setFormData({ ...formData, selectionMode: e.target.value })}>
+                                        <option>Only Zhakra</option>
+                                        <option>Only Auto Expo</option>
+                                        <option>Both</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <div style={{ flex: 1 }}>
                                 <label style={labelStyle}>Fee Type</label>
@@ -276,32 +331,54 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                                 <input required type="number" style={inputStyle} value={formData.feeAmount} onChange={e => setFormData({ ...formData, feeAmount: e.target.value })} />
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <div style={{ flex: 1 }}>
-                                <label style={labelStyle}>Selection Mode</label>
-                                <select style={inputStyle} value={formData.selectionMode} onChange={e => setFormData({ ...formData, selectionMode: e.target.value })}>
-                                    <option>Only Zhakra</option>
-                                    <option>Only Auto Expo</option>
-                                    <option>Both</option>
-                                </select>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <label style={labelStyle}>Event Group</label>
-                                <select style={inputStyle} value={formData.eventGroup} onChange={e => setFormData({ ...formData, eventGroup: e.target.value })}>
-                                    <option>Zhakra</option>
-                                    <option>Auto Expo</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Max Selectable Events</label>
-                            <input required type="number" min="1" style={inputStyle} value={formData.maxSelectableEvents || 1} onChange={e => setFormData({ ...formData, maxSelectableEvents: e.target.value })} />
-                            <small style={{ fontSize: '0.7rem', opacity: 0.5 }}>Allows participants to select multiple events in one registration.</small>
-                        </div>
+
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>WhatsApp Group Link</label>
                             <input required placeholder="https://chat.whatsapp.com/..." style={inputStyle} value={formData.whatsappLink} onChange={e => setFormData({ ...formData, whatsappLink: e.target.value })} />
                         </div>
+
+                        {/* CUSTOM FIELDS BUILDER */}
+                        <div style={{ gridColumn: '1 / -1', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                <label style={{ ...labelStyle, marginBottom: 0 }}>Event Specifications (Optional)</label>
+                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, details: [...(prev.details || []), { title: '', value: '' }] }))} style={{ color: 'var(--mercedes-green)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <FiPlus /> Add Field
+                                </button>
+                            </div>
+
+                            {(formData.details || []).map((detail, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                    <input
+                                        placeholder="Title (e.g. Venue)"
+                                        style={{ ...inputStyle, flex: 1 }}
+                                        value={detail.title}
+                                        onChange={e => {
+                                            const newDetails = [...formData.details];
+                                            newDetails[idx].title = e.target.value;
+                                            setFormData({ ...formData, details: newDetails });
+                                        }}
+                                    />
+                                    <input
+                                        placeholder="Value (e.g. Convention Center)"
+                                        style={{ ...inputStyle, flex: 2 }}
+                                        value={detail.value}
+                                        onChange={e => {
+                                            const newDetails = [...formData.details];
+                                            newDetails[idx].value = e.target.value;
+                                            setFormData({ ...formData, details: newDetails });
+                                        }}
+                                    />
+                                    <button type="button" onClick={() => {
+                                        const newDetails = formData.details.filter((_, i) => i !== idx);
+                                        setFormData({ ...formData, details: newDetails });
+                                    }} style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: 'none', borderRadius: '8px', padding: '0 15px', cursor: 'pointer' }}>
+                                        <FiTrash2 />
+                                    </button>
+                                </div>
+                            ))}
+                            {(formData.details || []).length === 0 && <p style={{ fontSize: '0.8rem', opacity: 0.4, textAlign: 'center', margin: 0 }}>No custom fields added.</p>}
+                        </div>
+
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>Payment QR Code</label>
                             <div style={{ border: '1px dashed rgba(255,255,255,0.2)', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
@@ -309,6 +386,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                                 {qrFile && <p style={{ fontSize: '0.8rem', marginTop: '10px', color: 'var(--mercedes-green)' }}>Selected: {qrFile.name}</p>}
                             </div>
                         </div>
+
                         <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px' }}>{loading ? 'Processing...' : 'Launch Event'}</button>
                     </form>
                 </div>
@@ -354,7 +432,7 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
         }
 
         try {
-            await axios.post(`${API_URL}/${type}`, formData, { 
+            await axios.post(`${API_URL}/${type}`, formData, {
                 withCredentials: true
             });
             toast.success('Successfully uploaded to server');
@@ -473,7 +551,7 @@ const AdminsPanel = ({ onRefresh }) => {
         <div style={{ maxWidth: '800px' }}>
             <h1 style={{ marginBottom: '30px' }}>Admin Management</h1>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '30px' }}>
                 <div className="glass-card">
                     <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Add New Admin</h3>
                     <form onSubmit={handleAdd}>

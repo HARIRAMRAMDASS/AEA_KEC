@@ -35,9 +35,9 @@ const ImageSlider = () => {
     if (images.length === 0) return null;
 
     return (
-        <section id="bearers" style={{ padding: '100px 5%', background: 'transparent', textAlign: 'center' }}>
-            <h2 style={{ marginBottom: '50px' }}>Office Bearers</h2>
-            <div style={{ position: 'relative', maxWidth: '1000px', margin: '0 auto', height: '500px', overflow: 'hidden', borderRadius: '20px' }}>
+        <section id="bearers" className="section-padding" style={{ background: 'transparent', textAlign: 'center' }}>
+            <h2 className="section-title">Office Bearers</h2>
+            <div className="image-slider-container">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={images[currentIndex]._id}

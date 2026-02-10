@@ -17,15 +17,35 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--primary-black);
   color: var(--primary-white);
-  overflow-x: hidden;
   line-height: 1.6;
 }
 
-h1, h2, h3, .syncopate {
+img,
+video,
+iframe,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+.syncopate {
   font-family: 'Syncopate', sans-serif;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -93,10 +113,112 @@ h1, h2, h3, .syncopate {
 
 /* Animations */
 @keyframes slideIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade {
   animation: slideIn 0.8s ease-out forwards;
+}
+
+/* Responsive Utilities & Layouts */
+.section-padding {
+  padding: 100px 5%;
+}
+
+.department-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  align-items: center;
+}
+
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+}
+
+.image-slider-container {
+  height: 500px;
+  max-width: 1000px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.video-slider-container {
+  position: relative;
+  max-width: 1000px;
+  margin: 0 auto;
+  border-radius: 25px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.section-title {
+  margin-bottom: 50px;
+  font-size: 2.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Mobile & Tablet Responsive Adjustments */
+@media (max-width: 768px) {
+  .section-padding {
+    padding: 60px 5%;
+    /* Reduce vertical padding on mobile */
+  }
+
+  .department-grid {
+    grid-template-columns: 1fr;
+    /* Stack department info */
+    gap: 30px;
+    text-align: center;
+    /* Center align text on mobile for better balance */
+  }
+
+  /* Ensure paragraph inside department grid aligns well */
+  .department-grid p {
+    text-align: center !important;
+  }
+
+  .events-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+    /* Full width cards on mobile or smaller repeat */
+  }
+
+  .image-slider-container {
+    height: 300px;
+    /* Reduce slider height on mobile */
+  }
+
+  .section-title {
+    font-size: 1.8rem;
+    /* Smaller titles */
+    margin-bottom: 30px;
+  }
+
+  .glass-card {
+    padding: 1.5rem;
+    /* Slightly less padding in cards */
+  }
+}
+
+@media (min-width: 769px) {
+
+  /* Ensure only on larger screens the text is left aligned if needed */
+  .department-text-left {
+    text-align: left !important;
+  }
 }

@@ -24,7 +24,8 @@ const participantSchema = new mongoose.Schema({
         url: { type: String, required: true },
         publicId: { type: String, required: true }
     },
-    isVerified: { type: Boolean, default: false }
+    isVerified: { type: Boolean, default: false },
+    verificationCode: { type: String, required: true, unique: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Participant', participantSchema);

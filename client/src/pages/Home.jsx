@@ -33,14 +33,14 @@ const Home = () => {
         <main>
             <Hero />
 
-            <section style={{ padding: '100px 5%', textAlign: 'center' }}>
-                <h2 style={{ marginBottom: '50px' }}>The Department</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', alignItems: 'center' }}>
+            <section className="section-padding" style={{ textAlign: 'center' }}>
+                <h2 className="section-title">The Department</h2>
+                <div className="department-grid">
                     <motion.div
                         initial={{ opacity: 0, x: -50 }}
                         whileInView={{ opacity: 1, x: 0 }}
                     >
-                        <p style={{ fontSize: '1.2rem', color: '#ccc', textAlign: 'left' }}>
+                        <p className="department-text-left" style={{ fontSize: '1.2rem', color: '#ccc' }}>
                             The Automobile Engineering Association (AEA) at Kongu Engineering College is a premier hub for automotive enthusiasts.
                             We bridge the gap between academic theory and industry reality through workshops, symposia, and high-octane events.
                         </p>
@@ -62,9 +62,9 @@ const Home = () => {
                 <VideoSlider />
             </div>
 
-            <section id="events" style={{ padding: '100px 5%', textAlign: 'center', background: 'linear-gradient(to bottom, #0A0A0A, #000)' }}>
-                <h2 style={{ marginBottom: '50px' }}>Active Events</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+            <section id="events" className="section-padding" style={{ textAlign: 'center', background: 'linear-gradient(to bottom, #0A0A0A, #000)' }}>
+                <h2 className="section-title">Active Events</h2>
+                <div className="events-grid">
                     {events.map(ev => (
                         <motion.div
                             key={ev._id}

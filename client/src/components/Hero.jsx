@@ -5,6 +5,7 @@ const Hero = () => {
     return (
         <section style={{
             minHeight: '100vh',
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -23,7 +24,7 @@ const Hero = () => {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1 }}
-                style={{ maxWidth: '1000px', textAlign: 'center', zIndex: 1, width: '100%' }}
+                style={{ maxWidth: '1000px', textAlign: 'center', zIndex: 1, width: '100%', padding: '0 15px' }}
             >
                 <motion.h4
                     initial={{ opacity: 0 }}
@@ -83,9 +84,11 @@ const Hero = () => {
                 </div>
             </motion.div>
 
-            {/* Mercedes Green accent lines */}
-            <div className="accent-line-1" />
-            <div className="accent-line-2" />
+            {/* Mercedes Green accent lines - Wrapped to ensure clipping */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+                <div className="accent-line-1" />
+                <div className="accent-line-2" />
+            </div>
 
             <style>{`
                 .hero-title {
@@ -153,8 +156,11 @@ const Hero = () => {
                         gap: 5px;
                     }
                     .title-part {
-                        font-size: clamp(2rem, 15vw, 3.5rem);
+                        font-size: clamp(1.2rem, 9vw, 3rem);
                         line-height: 1.1;
+                        word-break: normal;
+                        overflow-wrap: normal;
+                        white-space: normal;
                     }
                     .hero-btns {
                         flex-direction: column;

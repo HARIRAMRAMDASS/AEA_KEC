@@ -20,14 +20,22 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
         console.log("=== EVENT CREATION REQUEST ===");
         console.log("CONTENT-TYPE RECEIVED:", req.headers['content-type']);
         console.log("REQ BODY:", req.body);
-        console.log("REQ FILE:", req.file ? { 
-            originalname: req.file.originalname, 
-            mimetype: req.file.mimetype, 
-            size: req.file.size, 
-            hasBuffer: !!req.file.buffer 
+        console.log("REQ FILE:", req.file ? {
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            hasBuffer: !!req.file.buffer
         } : 'NO FILE RECEIVED - CHECK HEADERS ABOVE');
 
-        const { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup } = req.body;
+        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup, details } = req.body;
+
+        if (typeof details === 'string') {
+            try {
+                details = JSON.parse(details);
+            } catch (e) {
+                details = [];
+            }
+        }
 
         if (!req.file) {
             return res.status(400).json({ message: 'QR Code image is required' });
@@ -53,7 +61,9 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
             whatsappLink,
             maxSelectableEvents,
             selectionMode,
-            eventGroup
+            selectionMode,
+            eventGroup,
+            details: details || []
         });
 
         console.log("EVENT CREATED:", event._id);
@@ -105,13 +115,13 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
 router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
     console.log("=== REGISTRATION REQUEST ===");
     console.log("REQ BODY:", req.body);
-    console.log("REQ FILE:", req.file ? { 
-        originalname: req.file.originalname, 
-        mimetype: req.file.mimetype, 
-        size: req.file.size, 
-        hasBuffer: !!req.file.buffer 
+    console.log("REQ FILE:", req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        hasBuffer: !!req.file.buffer
     } : 'NO FILE RECEIVED - THIS IS THE PROBLEM');
-    
+
     let { teamName, members, college, collegeName, transactionId, eventIds, collegeId } = req.body;
 
     // Parse members and eventIds if they come as strings (common with FormData)
@@ -159,6 +169,16 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
     const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/payments');
     console.log("CLOUDINARY UPLOAD RESULT:", { secure_url: uploaded.secure_url, public_id: uploaded.public_id });
 
+    // Generate a secure 6-digit verification code
+    // Generate a secure, unique 6-digit verification code
+    let verificationCode;
+    let isUnique = false;
+    while (!isUnique) {
+        verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const existing = await Participant.findOne({ verificationCode });
+        if (!existing) isUnique = true;
+    }
+
     const participant = await Participant.create({
         events: eventIds,
         teamName,
@@ -170,7 +190,8 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         paymentScreenshot: {
             url: uploaded.secure_url,
             publicId: uploaded.public_id
-        }
+        },
+        verificationCode
     });
 
     // Send Confirmation Emails (Background Process)
@@ -178,7 +199,8 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         emails: members.filter(m => m.email).map(m => m.email),
         eventName: events.map(e => e.name).join(' & '),
         teamName: teamName || 'Individual',
-        collegeName: collegeName
+        collegeName: collegeName,
+        verificationCode
     };
 
     sendMail(emailPayload).catch(err => console.error('Background Email Trigger Failed:', err));
@@ -194,22 +216,26 @@ router.get('/:id/export', protect, asyncHandler(async (req, res) => {
         throw new Error('Event not found');
     }
 
-    const registrations = await Participant.find({ event: event._id });
+    const registrations = await Participant.find({ events: { $in: [event._id] } });
 
     let data = [];
-    registrations.forEach((reg, index) => {
-        reg.members.forEach((member, mIndex) => {
+    let counter = 1;
+    registrations.forEach((reg) => {
+        reg.members.forEach((member) => {
             data.push({
-                'S.No': index + 1,
-                'Team Name': reg.teamName || 'N/A',
-                'College': reg.college,
+                'S.No': counter++,
+                'Verification ID': reg.verificationCode || 'N/A',
+                'Event Name': event.name,
+                'Team Name': reg.teamName || 'Individual',
+                'College Type': reg.college,
                 'College Name': reg.collegeName,
                 'Transaction ID': reg.transactionId,
                 'Member Name': member.name,
                 'Roll Number': member.rollNumber,
                 'Phone': member.phone,
                 'Email': member.email,
-                'Department': member.department
+                'Department': member.department,
+                'Registered At': new Date(reg.createdAt).toLocaleString('en-IN')
             });
         });
     });
