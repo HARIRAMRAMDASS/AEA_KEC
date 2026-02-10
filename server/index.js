@@ -51,10 +51,6 @@ app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/colleges', collegeRoutes);
 
-// ---------- ERROR HANDLING (for API routes) ----------
-app.use(notFound);
-app.use(errorHandler);
-
 // ---------- STATIC FRONTEND ----------
 const clientPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientPath));
@@ -66,6 +62,10 @@ app.get('*', (req, res) => {
     }
     res.sendFile(path.join(clientPath, 'index.html'));
 });
+
+// ---------- ERROR HANDLING ----------
+app.use(notFound);
+app.use(errorHandler);
 
 // ---------- START ----------
 const PORT = process.env.PORT || 5000;
