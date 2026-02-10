@@ -31,6 +31,7 @@ const sendMail = async ({ emails, eventName, teamName, collegeName, verification
     console.log('📨 [MailService] Preparing to send email...');
     console.log(`   To: ${emails.length} recipients (${emails.join(', ')})`);
     console.log(`   Event: ${eventName}`);
+    console.log(`   Ticket ID: ${verificationCode}`);
 
     try {
         const response = await fetch(scriptUrl, {
