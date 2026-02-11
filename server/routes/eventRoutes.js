@@ -131,8 +131,10 @@ router.post('/verify/upload', upload.single('paymentScreenshot'), asyncHandler(a
         });
 
     if (uploadError) {
-        console.error('Supabase Upload Error:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload screenshot to cloud storage' });
+        console.error('--- SUPABASE UPLOAD FAILED ---');
+        console.error('Error Details:', JSON.stringify(uploadError, null, 2));
+        console.error('Bucket: aea_kec, Path:', filePath);
+        return res.status(500).json({ message: `Storage Error: ${uploadError.message || 'Failed to upload'}` });
     }
 
     const { data: { publicUrl } } = supabase.storage

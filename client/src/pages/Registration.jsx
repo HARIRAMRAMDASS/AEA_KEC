@@ -43,6 +43,7 @@ const Registration = () => {
             try {
                 if (eventIdFromUrl) {
                     const { data } = await axios.get(`${API_URL}/events/${eventIdFromUrl}`);
+                    console.log("DEBUG: Event from URL:", data);
                     if (data && data._id) {
                         setEvents([data]);
                     } else {
@@ -51,6 +52,7 @@ const Registration = () => {
                     }
                 } else {
                     const { data } = await axios.get(`${API_URL}/events`);
+                    console.log("DEBUG: All Events fetched:", data);
                     setEvents(Array.isArray(data) ? data : []);
                 }
             } catch (err) {
