@@ -7,11 +7,8 @@ const eventSchema = new mongoose.Schema({
     teamSize: { type: Number, required: true },
     feeType: { type: String, enum: ['Per Head', 'Per Team'], required: true },
     feeAmount: { type: Number, required: true },
+    upiId: { type: String, required: true },
     closingDate: { type: Date, required: true },
-    qrCode: {
-        url: { type: String, required: true },
-        publicId: { type: String, required: true }
-    },
     whatsappLink: { type: String, required: true },
     description: { type: String, required: true },
     maxSelectableEvents: { type: Number, default: 0 },

@@ -2,56 +2,28 @@ const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
 const Participant = require('../models/Participant');
+const PaymentVerification = require('../models/PaymentVerification');
 const asyncHandler = require('express-async-handler');
 const { protect } = require('../middleware/authMiddleware');
 const { upload, cloudinary, uploadToCloudinary } = require('../utils/cloudinary');
 const { sendMail } = require('../utils/mailService');
+const supabase = require('../utils/supabase');
+const { performOCR } = require('../utils/ocr');
 const xlsx = require('xlsx');
+const crypto = require('crypto');
 
 // @desc Create a new event
-router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
-    if (err) {
-        console.error("[MULTER ERROR] File upload failed:", err.message);
-        return res.status(400).json({ message: `Upload error: ${err.message}` });
-    }
-    next();
-}, asyncHandler(async (req, res) => {
+router.post('/', protect, asyncHandler(async (req, res) => {
     try {
         console.log("=== EVENT CREATION REQUEST ===");
-        console.log("CONTENT-TYPE RECEIVED:", req.headers['content-type']);
-        console.log("REQ BODY:", req.body);
-        console.log("REQ FILE:", req.file ? {
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            hasBuffer: !!req.file.buffer
-        } : 'NO FILE RECEIVED - CHECK HEADERS ABOVE');
-
-        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, details, description, subEvents } = req.body;
+        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, details, description, subEvents, upiId } = req.body;
 
         if (typeof details === 'string') {
-            try {
-                details = JSON.parse(details);
-            } catch (e) {
-                details = [];
-            }
+            try { details = JSON.parse(details); } catch (e) { details = []; }
         }
         if (typeof subEvents === 'string') {
-            try {
-                subEvents = JSON.parse(subEvents);
-            } catch (e) {
-                subEvents = [];
-            }
+            try { subEvents = JSON.parse(subEvents); } catch (e) { subEvents = []; }
         }
-
-        if (!req.file) {
-            return res.status(400).json({ message: 'QR Code image is required' });
-        }
-
-        console.log("UPLOADING QR CODE TO CLOUDINARY...");
-        // Upload buffer to Cloudinary
-        const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events');
-        console.log("QR CODE UPLOAD SUCCESS:", { url: uploaded.secure_url, publicId: uploaded.public_id });
 
         const event = await Event.create({
             name,
@@ -60,11 +32,8 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
             teamSize,
             feeType,
             feeAmount,
+            upiId,
             closingDate,
-            qrCode: {
-                url: uploaded.secure_url,
-                publicId: uploaded.public_id
-            },
             whatsappLink,
             description,
             maxSelectableEvents: maxSelectableEvents || 1,
@@ -77,7 +46,7 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
         res.status(201).json(event);
     } catch (error) {
         console.error('Event Creation Error:', error);
-        res.status(500).json({ message: error.message || 'Server Upload Error' });
+        res.status(500).json({ message: error.message || 'Server Error' });
     }
 }));
 
@@ -118,38 +87,168 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Event removed' });
 }));
 
-// @desc Update Event QR Code
-router.put('/:id/qr', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
+// @desc Update Event UPI ID
+router.put('/:id/upi', protect, asyncHandler(async (req, res) => {
+    const { upiId } = req.body;
     const event = await Event.findById(req.params.id);
     if (!event) {
         res.status(404);
         throw new Error('Event not found');
     }
 
-    if (!req.file) {
-        res.status(400);
-        throw new Error('No image file provided');
-    }
-
-    // Delete old QR from Cloudinary
-    if (event.qrCode && event.qrCode.publicId) {
-        try {
-            await cloudinary.uploader.destroy(event.qrCode.publicId);
-        } catch (err) {
-            console.error('Failed to delete old QR:', err);
-        }
-    }
-
-    // Upload new QR
-    const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events');
-
-    event.qrCode = {
-        url: uploaded.secure_url,
-        publicId: uploaded.public_id
-    };
-
+    event.upiId = upiId;
     await event.save();
     res.json(event);
+}));
+
+// --- PAYMENT VERIFICATION ROUTES ---
+
+// @desc Upload screenshot & start verification
+router.post('/verify/upload', upload.single('paymentScreenshot'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'Screenshot is mandatory' });
+    }
+
+    const { participantName, eventId, registrationData } = req.body;
+    const parsedRegData = typeof registrationData === 'string' ? JSON.parse(registrationData) : registrationData;
+
+    // 0. Check Supabase Client
+    if (!supabase) {
+        console.error('Supabase client not initialized. Check .env');
+        return res.status(500).json({ message: 'Cloud storage service unavailable. Contact admin.' });
+    }
+
+    // 1. Upload to Supabase Storage
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}.${fileExt}`;
+    const filePath = `payments/${fileName}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('aea_kec')
+        .upload(filePath, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+        });
+
+    if (uploadError) {
+        console.error('Supabase Upload Error:', uploadError);
+        return res.status(500).json({ message: 'Failed to upload screenshot to cloud storage' });
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from('aea_kec')
+        .getPublicUrl(filePath);
+
+    // 2. Perform OCR
+    const ocrData = await performOCR(req.file.buffer);
+
+    // 3. Create Verification Record
+    const verification = await PaymentVerification.create({
+        participantName,
+        eventId,
+        screenshotUrl: publicUrl,
+        screenshotPath: filePath,
+        transactionId: ocrData?.transactionId || '',
+        amount: ocrData?.amount || 0,
+        upiId: ocrData?.upiId || '',
+        registrationData: parsedRegData,
+        status: 'PENDING'
+    });
+
+    res.status(201).json(verification);
+}));
+
+// @desc Get pending verifications
+router.get('/verify/pending', protect, asyncHandler(async (req, res) => {
+    const verifications = await PaymentVerification.find({ status: 'PENDING' }).populate('eventId', 'name');
+    res.json(verifications);
+}));
+
+// @desc Approve Payment Verification
+router.post('/verify/approve/:id', protect, asyncHandler(async (req, res) => {
+    const { transactionId, amount } = req.body;
+    const verification = await PaymentVerification.findById(req.params.id);
+    if (!verification) {
+        res.status(404);
+        throw new Error('Verification record not found');
+    }
+
+    const { registrationData, eventId } = verification;
+    const event = await Event.findById(eventId);
+
+    // 1. Generate Verification Code (Ticket ID)
+    let verificationCode;
+    let isUnique = false;
+    while (!isUnique) {
+        verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const existing = await Participant.findOne({ verificationCode });
+        if (!existing) isUnique = true;
+    }
+
+    // 2. Create Participant
+    const participant = await Participant.create({
+        ...registrationData,
+        events: [eventId],
+        verificationCode,
+        isVerified: true,
+        transactionId: transactionId || verification.transactionId || `MANUAL_${Date.now()}`,
+        paymentScreenshot: {
+            url: verification.screenshotUrl,
+            publicId: verification.screenshotPath
+        }
+    });
+
+    // 3. Send Email
+    const emailPayload = {
+        emails: participant.members.filter(m => m.email).map(m => m.email),
+        eventName: event.name,
+        teamName: participant.teamName || 'Individual',
+        collegeName: participant.collegeName,
+        verificationCode,
+        ticketId: verificationCode
+    };
+    sendMail(emailPayload).catch(err => console.error('Email Failed:', err));
+
+    // 4. Update Verification Status
+    verification.status = 'VERIFIED';
+    await verification.save();
+
+    // 5. Delete from Supabase Storage (Optional cleanup)
+    if (supabase) {
+        const { error: deleteError } = await supabase.storage
+            .from('aea_kec')
+            .remove([verification.screenshotPath]);
+
+        if (deleteError) console.error('Failed to delete approved screenshot:', deleteError);
+    }
+
+    res.json({ message: 'Payment verified and registration completed', participant });
+}));
+
+// @desc Reject Payment Verification
+router.post('/verify/reject/:id', protect, asyncHandler(async (req, res) => {
+    const verification = await PaymentVerification.findById(req.params.id);
+    if (!verification) {
+        res.status(404);
+        throw new Error('Verification record not found');
+    }
+
+    verification.status = 'REJECTED';
+    await verification.save();
+
+    // Notify participant logic could go here (e.g. email)
+    // For now just return success
+    res.json({ message: 'Payment rejected' });
+}));
+
+// @desc Get verification status
+router.get('/verify/status/:id', asyncHandler(async (req, res) => {
+    const verification = await PaymentVerification.findById(req.params.id);
+    if (!verification) {
+        res.status(404);
+        throw new Error('Verification record not found');
+    }
+    res.json({ status: verification.status, verificationCode: verification.registrationData?.verificationCode });
 }));
 
 // @desc Register for an event(s)

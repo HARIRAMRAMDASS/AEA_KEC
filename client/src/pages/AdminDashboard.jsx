@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle } from 'react-icons/fi';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('events');
@@ -10,6 +10,7 @@ const AdminDashboard = () => {
     const [bearers, setBearers] = useState([]);
     const [videos, setVideos] = useState([]);
     const [members, setMembers] = useState([]);
+    const [payments, setPayments] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const navigate = useNavigate();
 
@@ -26,16 +27,18 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [evRes, brRes, viRes, memRes] = await Promise.all([
+            const [evRes, brRes, viRes, memRes, payRes] = await Promise.all([
                 axios.get(`${API_URL}/events`),
                 axios.get(`${API_URL}/bearers`),
                 axios.get(`${API_URL}/videos`),
-                axios.get(`${API_URL}/members`)
+                axios.get(`${API_URL}/members`),
+                axios.get(`${API_URL}/events/verify/pending`, { withCredentials: true })
             ]);
             setEvents(evRes.data);
             setBearers(brRes.data);
             setVideos(viRes.data);
             setMembers(memRes.data);
+            setPayments(payRes.data);
         } catch (err) {
             console.error('Fetch failed', err);
         }
@@ -71,6 +74,7 @@ const AdminDashboard = () => {
             case 'bearers': return <MediaPanel title="Office Bearers" type="bearers" data={bearers} onRefresh={fetchData} onDelete={(id) => deleteItem('bearers', id)} />;
             case 'videos': return <MediaPanel title="Videos" type="videos" data={videos} onRefresh={fetchData} onDelete={(id) => deleteItem('videos', id)} isVideo />;
             case 'members': return <MembersPanel data={members} onRefresh={fetchData} onDelete={(id) => deleteItem('members', id)} />;
+            case 'payments': return <PaymentsPanel data={payments} onRefresh={fetchData} />;
             case 'admins': return <AdminsPanel onRefresh={fetchData} />;
             default: return null;
         }
@@ -113,6 +117,7 @@ const AdminDashboard = () => {
                 <SidebarLink active={activeTab === 'bearers'} icon={<FiImage />} label="Office Bearers" onClick={() => { setActiveTab('bearers'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'videos'} icon={<FiVideo />} label="Videos" onClick={() => { setActiveTab('videos'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'members'} icon={<FiUsers />} label="AEA Members" onClick={() => { setActiveTab('members'); setIsSidebarOpen(false); }} />
+                <SidebarLink active={activeTab === 'payments'} icon={<FiCheckCircle />} label="Payment Verification" onClick={() => { setActiveTab('payments'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'admins'} icon={<FiUsers />} label="Admins" onClick={() => { setActiveTab('admins'); setIsSidebarOpen(false); }} />
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -183,27 +188,24 @@ const SidebarLink = ({ active, icon, label, onClick }) => (
 const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
-        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: []
+        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: [], upiId: ''
     });
-    const [qrFile, setQrFile] = useState(null);
-    const [editingQrEvent, setEditingQrEvent] = useState(null);
+    const [editingUpiEvent, setEditingUpiEvent] = useState(null);
+    const [newUpiId, setNewUpiId] = useState('');
     const [loading, setLoading] = useState(false);
 
     const API_URL = '/api';
 
-    const handleUpdateQr = async (e) => {
+    const handleUpdateUpi = async (e) => {
         e.preventDefault();
-        if (!qrFile) return toast.error('Please select a new QR image');
+        if (!newUpiId) return toast.error('Please enter a UPI ID');
         setLoading(true);
 
-        const formData = new FormData();
-        formData.append('qrCode', qrFile);
-
         try {
-            await axios.put(`${API_URL}/events/${editingQrEvent._id}/qr`, formData, { withCredentials: true });
-            toast.success('QR Code updated successfully');
-            setEditingQrEvent(null);
-            setQrFile(null);
+            await axios.put(`${API_URL}/events/${editingUpiEvent._id}/upi`, { upiId: newUpiId }, { withCredentials: true });
+            toast.success('UPI ID updated successfully');
+            setEditingUpiEvent(null);
+            setNewUpiId('');
             onRefresh();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Update failed');
@@ -214,19 +216,8 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        e.preventDefault();
-        if (!qrFile) return toast.error('QR Code is required');
         setLoading(true);
-        const data = new FormData();
-        Object.keys(formData).forEach(key => {
-            if (key === 'details' || key === 'subEvents') {
-                data.append(key, JSON.stringify(formData[key]));
-            } else {
-                data.append(key, formData[key]);
-            }
-        });
-
-        data.append('qrCode', qrFile);
+        const data = { ...formData };
 
         try {
             await axios.post(`${API_URL}/events`, data, {
@@ -237,9 +228,8 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
             setFormData({
                 name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1,
                 closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both',
-                details: [], subEvents: []
+                details: [], subEvents: [], upiId: ''
             });
-            setQrFile(null);
             onRefresh();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to create event');
@@ -257,24 +247,23 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                 </div>
             </div>
 
-            {/* Edit QR Modal */}
-            {editingQrEvent && (
+            {/* Edit UPI Modal */}
+            {editingUpiEvent && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div className="glass-card" style={{ width: '100%', maxWidth: '400px', position: 'relative' }}>
-                        <button onClick={() => { setEditingQrEvent(null); setQrFile(null); }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}><FiX /></button>
-                        <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Update QR Code</h3>
+                        <button onClick={() => { setEditingUpiEvent(null); setNewUpiId(''); }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}><FiX /></button>
+                        <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Update UPI ID</h3>
 
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <p style={{ opacity: 0.7, marginBottom: '10px' }}>Current QR:</p>
-                            <img src={editingQrEvent.qrCode?.url} alt="Current QR" style={{ width: '150px', borderRadius: '10px' }} />
+                            <p style={{ opacity: 0.7, marginBottom: '10px' }}>Current UPI ID: <span style={{ color: 'white' }}>{editingUpiEvent.upiId}</span></p>
                         </div>
 
-                        <form onSubmit={handleUpdateQr}>
-                            <div style={{ border: '1px dashed rgba(255,255,255,0.2)', padding: '20px', borderRadius: '10px', textAlign: 'center', marginBottom: '20px' }}>
-                                <input required type="file" onChange={e => setQrFile(e.target.files[0])} accept="image/*" />
-                                {qrFile && <p style={{ fontSize: '0.8rem', marginTop: '10px', color: 'var(--mercedes-green)' }}>Selected: {qrFile.name}</p>}
+                        <form onSubmit={handleUpdateUpi}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={labelStyle}>New UPI ID</label>
+                                <input required placeholder="eg: aea@upi" style={inputStyle} value={newUpiId} onChange={e => setNewUpiId(e.target.value)} />
                             </div>
-                            <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '12px' }}>{loading ? 'Updating...' : 'Upload New QR'}</button>
+                            <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '12px' }}>{loading ? 'Updating...' : 'Save Changes'}</button>
                         </form>
                     </div>
                 </div>
@@ -444,11 +433,9 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                         </div>
 
                         <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={labelStyle}>Payment QR Code</label>
-                            <div style={{ border: '1px dashed rgba(255,255,255,0.2)', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-                                <input required type="file" onChange={e => setQrFile(e.target.files[0])} accept="image/*" />
-                                {qrFile && <p style={{ fontSize: '0.8rem', marginTop: '10px', color: 'var(--mercedes-green)' }}>Selected: {qrFile.name}</p>}
-                            </div>
+                            <label style={labelStyle}>UPI ID for Payment *</label>
+                            <input required placeholder="eg: kongu_aea@oksbi" style={inputStyle} value={formData.upiId} onChange={e => setFormData({ ...formData, upiId: e.target.value })} />
+                            <small style={{ opacity: 0.5 }}>This ID will be used for participant UPI deep links (GPay/PhonePe).</small>
                         </div>
 
                         <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px' }}>{loading ? 'Processing...' : 'Launch Event'}</button>
@@ -464,7 +451,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button onClick={() => onExport(ev._id)} style={actionBtnStyle('var(--mercedes-green)')}><FiDownload /> Excel</button>
-                                <button onClick={() => { setEditingQrEvent(ev); setQrFile(null); }} style={actionBtnStyle('#FFA500')}><FiImage /> Edit QR</button>
+                                <button onClick={() => { setEditingUpiEvent(ev); setNewUpiId(ev.upiId || ''); }} style={actionBtnStyle('#FFA500')}><FiCheckCircle /> Edit UPI</button>
                                 <button onClick={() => onDelete(ev._id)} style={actionBtnStyle('#ff4d4d')}><FiTrash2 /> Delete</button>
                             </div>
                         </div>
@@ -671,102 +658,96 @@ const AdminsPanel = ({ onRefresh }) => {
     );
 };
 
-const MembersPanel = ({ data, onRefresh, onDelete }) => {
-    const [file, setFile] = useState(null);
-    const [formData, setFormData] = useState({
-        name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: ''
-    });
-    const [loading, setLoading] = useState(false);
+const PaymentsPanel = ({ data, onRefresh }) => {
+    const [loading, setLoading] = useState({});
+    const [edits, setEdits] = useState({}); // Store manual overrides
     const API_URL = '/api';
 
-    const handleUpload = async (e) => {
-        e.preventDefault();
-        if (!file) return toast.error('Select a profile image first');
-        if (!formData.name || !formData.position) return toast.error('Name and Position are mandatory');
-
-        setLoading(true);
-        const data = new FormData();
-        data.append('image', file);
-        Object.keys(formData).forEach(key => data.append(key, formData[key]));
-
+    const handleAction = async (pay, action) => {
+        const id = pay._id;
+        setLoading(prev => ({ ...prev, [id]: true }));
         try {
-            await axios.post(`${API_URL}/members`, data, { withCredentials: true });
-            toast.success('AEA Member added successfully');
-            setFile(null);
-            setFormData({ name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: '' });
+            const payload = action === 'approve' ? {
+                transactionId: edits[id]?.transactionId ?? pay.transactionId,
+                amount: edits[id]?.amount ?? pay.amount
+            } : {};
+
+            await axios.post(`${API_URL}/events/verify/${action}/${id}`, payload, { withCredentials: true });
+            toast.success(`Payment ${action === 'approve' ? 'Verified' : 'Rejected'}`);
             onRefresh();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Upload failed');
+            toast.error(err.response?.data?.message || 'Operation failed');
         } finally {
-            setLoading(false);
+            setLoading(prev => ({ ...prev, [id]: false }));
         }
+    };
+
+    const handleEditChange = (id, field, value) => {
+        setEdits(prev => ({
+            ...prev,
+            [id]: { ...(prev[id] || {}), [field]: value }
+        }));
     };
 
     return (
         <div>
-            <h1>AEA Members Management</h1>
-            <div className="glass-card" style={{ marginBottom: '40px' }}>
-                <form onSubmit={handleUpload} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                    <div>
-                        <label style={labelStyle}>Profile Image *</label>
-                        <input type="file" onChange={e => setFile(e.target.files[0])} accept="image/*" style={{ width: '100%' }} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Full Name *</label>
-                        <input required placeholder="Name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Position *</label>
-                        <input required placeholder="eg: Vice President" style={inputStyle} value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Mobile</label>
-                        <input placeholder="Mobile" style={inputStyle} value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Email</label>
-                        <input type="email" placeholder="Email" style={inputStyle} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>Instagram ID</label>
-                        <input placeholder="Insta Username" style={inputStyle} value={formData.instagram} onChange={e => setFormData({ ...formData, instagram: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>LinkedIn ID</label>
-                        <input placeholder="LinkedIn Username" style={inputStyle} value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelStyle}>GitHub ID</label>
-                        <input placeholder="GitHub Username" style={inputStyle} value={formData.github} onChange={e => setFormData({ ...formData, github: e.target.value })} />
-                    </div>
-                    <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px' }}>{loading ? 'Adding Member...' : 'Register Member'}</button>
-                </form>
-            </div>
+            <h1>Payment Verification</h1>
+            <p style={{ opacity: 0.6, marginBottom: '30px' }}>Verify screenshots and confirm transaction details. You can manually edit the ID/Amount if OCR missed it.</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }} className="admin-grid">
-                {data.map(item => (
-                    <div key={item._id} style={{ position: 'relative', borderRadius: '15px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', background: '#111' }}>
-                        <img src={item.image.url} alt={item.name} style={{ width: '100%', height: '300px', objectFit: 'cover' }} />
-                        <div style={{ padding: '20px' }}>
-                            <h3 style={{ margin: 0, color: 'var(--mercedes-green)' }}>{item.name}</h3>
-                            <p style={{ margin: '5px 0', fontSize: '0.9rem', opacity: 0.8 }}>{item.position}</p>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px', fontSize: '0.8rem', opacity: 0.5 }}>
-                                {item.mobile && <span>📞</span>}
-                                {item.email && <span>📧</span>}
-                                {item.instagram && <span>📸</span>}
-                                {item.linkedin && <span>💼</span>}
-                                {item.github && <span>💻</span>}
+            <div style={{ display: 'grid', gap: '20px' }}>
+                {data.map(pay => (
+                    <div key={pay._id} className="glass-card" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 1.5fr 1fr', gap: '30px', alignItems: 'center' }}>
+                        <div>
+                            <p style={{ fontSize: '0.8rem', opacity: 0.5, marginBottom: '5px' }}>SCREENSHOT</p>
+                            <a href={pay.screenshotUrl} target="_blank" rel="noreferrer">
+                                <img src={pay.screenshotUrl} alt="payment" style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                            </a>
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0 }}>{pay.participantName}</h3>
+                            <p style={{ color: 'var(--mercedes-green)', fontWeight: 'bold', margin: '5px 0' }}>{pay.eventId?.name}</p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>TRANSACTION ID</label>
+                                    <input
+                                        style={inputStyle}
+                                        value={edits[pay._id]?.transactionId ?? pay.transactionId}
+                                        onChange={(e) => handleEditChange(pay._id, 'transactionId', e.target.value)}
+                                        placeholder="Missing ID..."
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>AMOUNT (₹)</label>
+                                    <input
+                                        type="number"
+                                        style={inputStyle}
+                                        value={edits[pay._id]?.amount ?? pay.amount}
+                                        onChange={(e) => handleEditChange(pay._id, 'amount', e.target.value)}
+                                    />
+                                </div>
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>RECIPIENT UPI (OCR)</label>
+                                    <p style={{ margin: 0, fontSize: '0.85rem' }}>{pay.upiId || 'Not detected'}</p>
+                                </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => onDelete(item._id)}
-                            style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255, 77, 77, 0.9)', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}
-                        >
-                            <FiTrash2 />
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button disabled={loading[pay._id]} onClick={() => handleAction(pay, 'approve')} style={{ background: 'var(--mercedes-green)', color: 'black', border: 'none', padding: '15px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <FiCheckCircle /> {loading[pay._id] ? 'Processing...' : 'Approve & Register'}
+                            </button>
+                            <button disabled={loading[pay._id]} onClick={() => handleAction(pay, 'reject')} style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: '1px solid #ff4d4d', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                Reject Payment
+                            </button>
+                        </div>
                     </div>
                 ))}
-                {data.length === 0 && <p style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.4 }}>No members registered.</p>}
+                {data.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                        <FiCheckCircle style={{ fontSize: '4rem', opacity: 0.1, marginBottom: '20px' }} />
+                        <p style={{ opacity: 0.4, fontSize: '1.2rem' }}>Paddock is clear. All payments processed.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
