@@ -15,7 +15,7 @@
  * @param {string} data.teamName - Name of the team
  * @param {string} data.collegeName - Name of the college
  */
-const sendMail = async ({ emails, eventName, teamName, collegeName, verificationCode }) => {
+const sendMail = async ({ emails, eventName, teamName, collegeName, verificationCode, ticketId }) => {
     // 1. READ URL AT RUNTIME
     let scriptUrl = process.env.APPSCRIPT_URL;
 
@@ -31,7 +31,7 @@ const sendMail = async ({ emails, eventName, teamName, collegeName, verification
     console.log('📨 [MailService] Preparing to send email...');
     console.log(`   To: ${emails.length} recipients (${emails.join(', ')})`);
     console.log(`   Event: ${eventName}`);
-    console.log(`   Ticket ID: ${verificationCode}`);
+    console.log(`   Ticket ID: ${ticketId || verificationCode}`);
 
     try {
         const response = await fetch(scriptUrl, {
@@ -44,7 +44,8 @@ const sendMail = async ({ emails, eventName, teamName, collegeName, verification
                 eventName,
                 teamName,
                 collegeName,
-                verificationCode
+                verificationCode: ticketId || verificationCode,
+                ticketId: ticketId || verificationCode
             }),
         });
 

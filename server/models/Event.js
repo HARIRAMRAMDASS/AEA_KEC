@@ -13,17 +13,17 @@ const eventSchema = new mongoose.Schema({
         publicId: { type: String, required: true }
     },
     whatsappLink: { type: String, required: true },
-    maxSelectableEvents: { type: Number, default: 1 },
+    description: { type: String, required: true },
+    maxSelectableEvents: { type: Number, default: 0 },
     selectionMode: {
         type: String,
         enum: ['Only Zhakra', 'Only Auto Expo', 'Both'],
         default: 'Both'
     },
-    eventGroup: {
-        type: String,
-        enum: ['Zhakra', 'Auto Expo'],
-        default: 'Zhakra'
-    },
+    subEvents: [{
+        title: { type: String, required: true },
+        description: { type: String }
+    }],
     details: [{
         title: { type: String, required: true },
         value: { type: String, required: true }

@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const Registration = () => {
     const API_URL = '/api';
 
-    const [events, setEvents] = useState([]);
-    const [selectedEventIds, setSelectedEventIds] = useState([]);
+    const location = useLocation();
+    const eventIdFromUrl = new URLSearchParams(location.search).get('eventId');
+
+    const [events, setEvents] = useState([]); // This will store only the main event if eventId exists
+    const [selectedEventIds, setSelectedEventIds] = useState(eventIdFromUrl ? [eventIdFromUrl] : []);
     const [formData, setFormData] = useState({
         teamName: '',
         members: [],
@@ -18,6 +22,7 @@ const Registration = () => {
     });
     const [screenshot, setScreenshot] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [selectedSubEvents, setSelectedSubEvents] = useState([]);
 
     // Search Logic States
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,17 +35,15 @@ const Registration = () => {
     useEffect(() => {
         const fetchEvents = async () => {
             try {
-                const { data: eventData } = await axios.get(`${API_URL}/events`);
-                const globalMode = eventData.find(e => e.selectionMode)?.selectionMode || 'Both';
-                const filtered = eventData.filter(ev => {
-                    if (globalMode === 'Both') return true;
-                    if (globalMode === 'Only Zhakra') return ev.eventGroup === 'Zhakra';
-                    if (globalMode === 'Only Auto Expo') return ev.eventGroup === 'Auto Expo';
-                    return true;
-                });
-                setEvents(filtered);
+                if (eventIdFromUrl) {
+                    const { data } = await axios.get(`${API_URL}/events/${eventIdFromUrl}`);
+                    setEvents([data]);
+                } else {
+                    const { data } = await axios.get(`${API_URL}/events`);
+                    setEvents(data);
+                }
             } catch (err) {
-                toast.error("Failed to load events");
+                toast.error("Failed to load event data");
             }
         };
         fetchEvents();
@@ -111,7 +114,7 @@ const Registration = () => {
 
     const selectedEventsData = events.filter(ev => selectedEventIds.includes(ev._id));
     const maxTeamSize = selectedEventsData.length > 0 ? Math.max(...selectedEventsData.map(e => e.teamSize)) : 0;
-    const maxAllowed = events.length > 0 ? events[0].maxSelectableEvents : 5;
+    const maxAllowed = events.length > 0 && !eventIdFromUrl ? events[0].maxSelectableEvents : 1;
 
     useEffect(() => {
         if (maxTeamSize > 0) {
@@ -141,6 +144,26 @@ const Registration = () => {
         setFormData({ ...formData, members: updatedMembers });
     };
 
+    const handleSubEventToggle = (eventId, subTitle, max) => {
+        setSelectedSubEvents(prev => {
+            const existing = prev.find(s => s.eventId === eventId);
+            if (!existing) {
+                return [...prev, { eventId, subEventTitles: [subTitle] }];
+            }
+
+            const currentTitles = existing.subEventTitles;
+            if (currentTitles.includes(subTitle)) {
+                return prev.map(s => s.eventId === eventId ? { ...s, subEventTitles: currentTitles.filter(t => t !== subTitle) } : s);
+            } else {
+                if (max > 0 && currentTitles.length >= max) {
+                    toast.warning(`You can only select up to ${max} sub-events for this event.`);
+                    return prev;
+                }
+                return prev.map(s => s.eventId === eventId ? { ...s, subEventTitles: [...currentTitles, subTitle] } : s);
+            }
+        });
+    };
+
     const isDeadlinePassed = selectedEventsData.some(ev => new Date() > new Date(ev.closingDate));
 
     const handleSubmit = async (e) => {
@@ -166,12 +189,14 @@ const Registration = () => {
 
         submitData.append('eventIds', JSON.stringify(selectedEventIds));
         submitData.append('members', JSON.stringify(formData.members.filter(m => m.name)));
+        submitData.append('selectedSubEvents', JSON.stringify(selectedSubEvents));
         submitData.append('paymentScreenshot', screenshot);
 
         try {
-            await axios.post(`${API_URL}/events/register`, submitData);
-            toast.success("Registration Successful! Check Email.");
+            const { data } = await axios.post(`${API_URL}/events/register`, submitData);
+            toast.success(`Registration Successful! Ticket ID: ${data.verificationCode}. Check Email.`);
             setSelectedEventIds([]);
+            setSelectedSubEvents([]);
             setFormData({ teamName: '', members: [], college: 'Engineering', collegeName: '', transactionId: '', collegeId: '' });
             setScreenshot(null);
             setSearchTerm('');
@@ -189,28 +214,47 @@ const Registration = () => {
                 <h1 style={{ textAlign: 'center', marginBottom: '40px', color: 'var(--mercedes-green)', fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase' }}>Join the Grid</h1>
 
                 <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '40px' }}>
-                        <label className="label-text">CHOOSE YOUR RACE <span style={{ color: 'var(--mercedes-green)' }}>(Max {maxAllowed})</span></label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '15px' }}>
-                            {events.map(ev => {
-                                const passed = new Date() > new Date(ev.closingDate);
-                                const selected = selectedEventIds.includes(ev._id);
-                                return (
-                                    <div key={ev._id} onClick={() => !passed && handleEventToggle(ev._id)} style={{
-                                        padding: '20px', borderRadius: '15px', border: `2px solid ${selected ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.05)'}`,
-                                        background: selected ? 'rgba(0, 161, 155, 0.1)' : 'rgba(255,255,255,0.02)', cursor: passed ? 'not-allowed' : 'pointer',
-                                        transition: '0.3s', opacity: passed ? 0.5 : 1, position: 'relative'
-                                    }}>
-                                        <div style={{ position: 'absolute', top: '15px', right: '15px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid var(--mercedes-green)', background: selected ? 'var(--mercedes-green)' : 'transparent' }} />
-                                        <h4 style={{ margin: 0, color: selected ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h4>
-                                        <p style={{ margin: '8px 0', fontSize: '0.8rem', opacity: 0.6 }}>{ev.eventGroup} | {ev.type}</p>
-                                        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>{'\u20B9'}{ev.feeAmount}</p>
-                                        {passed && <p style={{ color: '#ff4d4d', fontSize: '0.7rem', marginTop: '10px', fontWeight: 'bold' }}>CLOSED</p>}
-                                    </div>
-                                );
-                            })}
+                    {/* EVENT SELECTION GRID - ONLY SHOW IF NO EVENT ID IN URL */}
+                    {!eventIdFromUrl && (
+                        <div style={{ marginBottom: '40px' }}>
+                            <label className="label-text">CHOOSE YOUR RACE <span style={{ color: 'var(--mercedes-green)' }}>(Max {maxAllowed})</span></label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '15px' }}>
+                                {events.map(ev => {
+                                    const passed = new Date() > new Date(ev.closingDate);
+                                    const selected = selectedEventIds.includes(ev._id);
+                                    return (
+                                        <div key={ev._id} onClick={() => !passed && handleEventToggle(ev._id)} style={{
+                                            padding: '20px', borderRadius: '15px', border: `2px solid ${selected ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.05)'}`,
+                                            background: selected ? 'rgba(0, 161, 155, 0.1)' : 'rgba(255,255,255,0.02)', cursor: passed ? 'not-allowed' : 'pointer',
+                                            transition: '0.3s', opacity: passed ? 0.5 : 1, position: 'relative'
+                                        }}>
+                                            <div style={{ position: 'absolute', top: '15px', right: '15px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid var(--mercedes-green)', background: selected ? 'var(--mercedes-green)' : 'transparent' }} />
+                                            <h4 style={{ margin: 0, color: selected ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h4>
+                                            <p style={{ margin: '8px 0', fontSize: '0.8rem', opacity: 0.8, color: 'white', lineHeight: '1.4' }}>{ev.description}</p>
+                                            <p style={{ margin: '8px 0', fontSize: '0.75rem', opacity: 0.5 }}>{ev.type}</p>
+                                            <p style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>{'\u20B9'}{ev.feeAmount}</p>
+                                            {passed && <p style={{ color: '#ff4d4d', fontSize: '0.7rem', marginTop: '10px', fontWeight: 'bold' }}>CLOSED</p>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* DYNAMIC HEADER FOR SELECTED EVENT */}
+                    {eventIdFromUrl && selectedEventsData.length > 0 && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginBottom: '40px', padding: '30px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(0, 161, 155, 0.3)' }}>
+                            <span style={{ background: 'var(--mercedes-green)', color: '#000', padding: '5px 15px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase' }}>{selectedEventsData[0].type} EVENT</span>
+                            <h2 style={{ marginTop: '15px', color: 'white', fontSize: '2rem' }}>{selectedEventsData[0].name}</h2>
+                            <p style={{ opacity: 0.7, maxWidth: '600px', margin: '15px auto', lineHeight: '1.6' }}>{selectedEventsData[0].description}</p>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px', fontSize: '0.9rem', opacity: 0.6 }}>
+                                <span>📅 {new Date(selectedEventsData[0].date).toLocaleDateString()}</span>
+                                <span>👥 Max Team: {selectedEventsData[0].teamSize}</span>
+                                <span>💰 Entry: {'\u20B9'}{selectedEventsData[0].feeAmount}</span>
+                            </div>
+                        </motion.div>
+                    )}
+
 
                     {selectedEventIds.length > 0 && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -326,6 +370,68 @@ const Registration = () => {
                                     </div>
                                 </div>
                             ))}
+
+                            {/* SUB-EVENTS CHECKBOXES - MOVED BELOW CREW DETAILS */}
+                            <AnimatePresence>
+                                {selectedEventsData.filter(ev => ev.subEvents && ev.subEvents.length > 0).map(ev => (
+                                    <motion.div
+                                        key={`sub-${ev._id}`}
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        style={{ marginBottom: '40px', padding: '25px', background: 'rgba(0, 161, 155, 0.05)', borderRadius: '20px', border: '1px solid var(--mercedes-green)' }}
+                                    >
+                                        <label className="label-text" style={{ fontSize: '1rem', color: 'white', borderLeft: '4px solid var(--mercedes-green)', paddingLeft: '15px', marginBottom: '20px' }}>
+                                            SELECT SUB-EVENTS FOR {ev.name.toUpperCase()}
+                                            {ev.maxSelectableEvents > 0 && <span style={{ color: 'var(--mercedes-green)', marginLeft: '10px' }}> (Maximum {ev.maxSelectableEvents} Selections)</span>}
+                                        </label>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
+                                            {ev.subEvents.map((sub, idx) => {
+                                                const currentSelections = selectedSubEvents.find(s => s.eventId === ev._id)?.subEventTitles || [];
+                                                const isChecked = currentSelections.includes(sub.title);
+                                                const isMaxReached = ev.maxSelectableEvents > 0 && currentSelections.length >= ev.maxSelectableEvents && !isChecked;
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => !isMaxReached && handleSubEventToggle(ev._id, sub.title, ev.maxSelectableEvents)}
+                                                        style={{
+                                                            padding: '20px',
+                                                            borderRadius: '12px',
+                                                            background: isChecked ? 'rgba(0, 161, 155, 0.15)' : 'rgba(255,255,255,0.02)',
+                                                            border: `1px solid ${isChecked ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.1)'}`,
+                                                            transition: '0.2s',
+                                                            cursor: isMaxReached ? 'not-allowed' : 'pointer',
+                                                            opacity: isMaxReached ? 0.3 : 1,
+                                                            display: 'flex',
+                                                            alignItems: 'flex-start',
+                                                            gap: '15px'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            marginTop: '3px',
+                                                            minWidth: '22px',
+                                                            height: '22px',
+                                                            border: '2px solid var(--mercedes-green)',
+                                                            borderRadius: ev.maxSelectableEvents === 1 ? '50%' : '4px', // Circle if max 1 (radio feel)
+                                                            background: isChecked ? 'var(--mercedes-green)' : 'transparent',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}>
+                                                            {isChecked && <span style={{ color: 'black', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <p style={{ margin: 0, fontSize: '1.1rem', color: isChecked ? 'var(--mercedes-green)' : 'white', fontWeight: isChecked ? '700' : '500' }}>{sub.title}</p>
+                                                            {sub.description && <p style={{ margin: '5px 0 0', fontSize: '0.85rem', opacity: 0.6, color: '#ccc' }}>{sub.description}</p>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
 
                             <div style={{ background: '#FFFFFF', padding: '40px', borderRadius: '25px', color: '#000', textAlign: 'center', marginTop: '50px' }}>
                                 <h2 style={{ marginBottom: '30px', fontWeight: 900 }}>FINAL CHECKPOINT: PAYMENT</h2>

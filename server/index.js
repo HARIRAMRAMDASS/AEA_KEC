@@ -12,6 +12,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const bearerRoutes = require('./routes/bearerRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const collegeRoutes = require('./routes/collegeRoutes');
+const memberRoutes = require('./routes/memberRoutes');
 
 const Admin = require('./models/Admin');
 const College = require('./models/College');
@@ -50,6 +51,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/bearers', bearerRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/colleges', collegeRoutes);
+app.use('/api/members', memberRoutes);
 
 // ---------- STATIC FRONTEND ----------
 const clientPath = path.join(__dirname, '..', 'client', 'dist');

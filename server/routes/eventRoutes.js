@@ -27,13 +27,20 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
             hasBuffer: !!req.file.buffer
         } : 'NO FILE RECEIVED - CHECK HEADERS ABOVE');
 
-        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, eventGroup, details } = req.body;
+        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, details, description, subEvents } = req.body;
 
         if (typeof details === 'string') {
             try {
                 details = JSON.parse(details);
             } catch (e) {
                 details = [];
+            }
+        }
+        if (typeof subEvents === 'string') {
+            try {
+                subEvents = JSON.parse(subEvents);
+            } catch (e) {
+                subEvents = [];
             }
         }
 
@@ -59,10 +66,10 @@ router.post('/', protect, upload.single('qrCode'), (err, req, res, next) => {
                 publicId: uploaded.public_id
             },
             whatsappLink,
-            maxSelectableEvents,
-            selectionMode,
-            selectionMode,
-            eventGroup,
+            description,
+            maxSelectableEvents: maxSelectableEvents || 1,
+            selectionMode: selectionMode || 'Both',
+            subEvents: subEvents || [],
             details: details || []
         });
 
@@ -156,11 +163,12 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         hasBuffer: !!req.file.buffer
     } : 'NO FILE RECEIVED - THIS IS THE PROBLEM');
 
-    let { teamName, members, college, collegeName, transactionId, eventIds, collegeId } = req.body;
+    let { teamName, members, college, collegeName, transactionId, eventIds, collegeId, selectedSubEvents } = req.body;
 
-    // Parse members and eventIds if they come as strings (common with FormData)
+    // Parse items if they come as strings
     if (typeof members === 'string') members = JSON.parse(members);
     if (typeof eventIds === 'string') eventIds = JSON.parse(eventIds);
+    if (typeof selectedSubEvents === 'string') selectedSubEvents = JSON.parse(selectedSubEvents);
 
     console.log("PARSED MEMBERS:", members);
     console.log("PARSED EVENT IDS:", eventIds);
@@ -203,7 +211,6 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
     const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/payments');
     console.log("CLOUDINARY UPLOAD RESULT:", { secure_url: uploaded.secure_url, public_id: uploaded.public_id });
 
-    // Generate a secure 6-digit verification code
     // Generate a secure, unique 6-digit verification code
     let verificationCode;
     let isUnique = false;
@@ -225,7 +232,8 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
             url: uploaded.secure_url,
             publicId: uploaded.public_id
         },
-        verificationCode
+        verificationCode,
+        selectedSubEvents: selectedSubEvents || []
     });
 
     // Send Confirmation Emails (Background Process)
@@ -234,7 +242,8 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         eventName: events.map(e => e.name).join(' & '),
         teamName: teamName || 'Individual',
         collegeName: collegeName,
-        verificationCode
+        verificationCode,
+        ticketId: verificationCode // Alias for better transparency in AppScript
     };
 
     sendMail(emailPayload).catch(err => console.error('Background Email Trigger Failed:', err));
@@ -255,11 +264,15 @@ router.get('/:id/export', protect, asyncHandler(async (req, res) => {
     let data = [];
     let counter = 1;
     registrations.forEach((reg) => {
+        const currentEventSubEvents = reg.selectedSubEvents?.find(se => se.eventId.toString() === event._id.toString());
+        const subEventString = currentEventSubEvents?.subEventTitles?.join(', ') || 'N/A';
+
         reg.members.forEach((member) => {
             data.push({
                 'S.No': counter++,
                 'Verification ID': reg.verificationCode || 'N/A',
                 'Event Name': event.name,
+                'Selected Sub-Events': subEventString,
                 'Team Name': reg.teamName || 'Individual',
                 'College Type': reg.college,
                 'College Name': reg.collegeName,
@@ -285,16 +298,5 @@ router.get('/:id/export', protect, asyncHandler(async (req, res) => {
     res.send(buffer);
 }));
 
-// @desc Update global selection mode for all events
-router.put('/global-mode', protect, asyncHandler(async (req, res) => {
-    const { selectionMode } = req.body;
-    if (!['Only Zhakra', 'Only Auto Expo', 'Both'].includes(selectionMode)) {
-        res.status(400);
-        throw new Error('Invalid selection mode');
-    }
-
-    await Event.updateMany({}, { selectionMode });
-    res.json({ message: 'Global selection mode updated' });
-}));
 
 module.exports = router;

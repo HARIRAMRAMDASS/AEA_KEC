@@ -9,6 +9,7 @@ const AdminDashboard = () => {
     const [events, setEvents] = useState([]);
     const [bearers, setBearers] = useState([]);
     const [videos, setVideos] = useState([]);
+    const [members, setMembers] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const navigate = useNavigate();
 
@@ -25,14 +26,16 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [evRes, brRes, viRes] = await Promise.all([
+            const [evRes, brRes, viRes, memRes] = await Promise.all([
                 axios.get(`${API_URL}/events`),
                 axios.get(`${API_URL}/bearers`),
-                axios.get(`${API_URL}/videos`)
+                axios.get(`${API_URL}/videos`),
+                axios.get(`${API_URL}/members`)
             ]);
             setEvents(evRes.data);
             setBearers(brRes.data);
             setVideos(viRes.data);
+            setMembers(memRes.data);
         } catch (err) {
             console.error('Fetch failed', err);
         }
@@ -67,6 +70,7 @@ const AdminDashboard = () => {
             case 'events': return <EventsPanel events={events} onRefresh={fetchData} onDelete={(id) => deleteItem('events', id)} onExport={exportExcel} />;
             case 'bearers': return <MediaPanel title="Office Bearers" type="bearers" data={bearers} onRefresh={fetchData} onDelete={(id) => deleteItem('bearers', id)} />;
             case 'videos': return <MediaPanel title="Videos" type="videos" data={videos} onRefresh={fetchData} onDelete={(id) => deleteItem('videos', id)} isVideo />;
+            case 'members': return <MembersPanel data={members} onRefresh={fetchData} onDelete={(id) => deleteItem('members', id)} />;
             case 'admins': return <AdminsPanel onRefresh={fetchData} />;
             default: return null;
         }
@@ -108,6 +112,7 @@ const AdminDashboard = () => {
                 <SidebarLink active={activeTab === 'events'} icon={<FiCalendar />} label="Events" onClick={() => { setActiveTab('events'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'bearers'} icon={<FiImage />} label="Office Bearers" onClick={() => { setActiveTab('bearers'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'videos'} icon={<FiVideo />} label="Videos" onClick={() => { setActiveTab('videos'); setIsSidebarOpen(false); }} />
+                <SidebarLink active={activeTab === 'members'} icon={<FiUsers />} label="AEA Members" onClick={() => { setActiveTab('members'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'admins'} icon={<FiUsers />} label="Admins" onClick={() => { setActiveTab('admins'); setIsSidebarOpen(false); }} />
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -178,7 +183,7 @@ const SidebarLink = ({ active, icon, label, onClick }) => (
 const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
-        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both', eventGroup: 'Zhakra'
+        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: []
     });
     const [qrFile, setQrFile] = useState(null);
     const [editingQrEvent, setEditingQrEvent] = useState(null);
@@ -214,8 +219,8 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         setLoading(true);
         const data = new FormData();
         Object.keys(formData).forEach(key => {
-            if (key === 'details') {
-                data.append('details', JSON.stringify(formData[key]));
+            if (key === 'details' || key === 'subEvents') {
+                data.append(key, JSON.stringify(formData[key]));
             } else {
                 data.append(key, formData[key]);
             }
@@ -231,8 +236,8 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
             setShowForm(false);
             setFormData({
                 name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1,
-                closingDate: '', whatsappLink: '', maxSelectableEvents: 1, selectionMode: 'Both',
-                eventGroup: 'Zhakra', details: []
+                closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both',
+                details: [], subEvents: []
             });
             setQrFile(null);
             onRefresh();
@@ -248,24 +253,6 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' }}>
                 <h1 style={{ fontSize: '1.5rem' }}>Events Management</h1>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Symposium Mode:</label>
-                    <select
-                        style={{ ...inputStyle, width: 'auto', padding: '10px' }}
-                        value={events[0]?.selectionMode || 'Both'}
-                        onChange={async (e) => {
-                            try {
-                                await axios.put(`${API_URL}/events/global-mode`, { selectionMode: e.target.value }, { withCredentials: true });
-                                toast.success(`Mode set to ${e.target.value}`);
-                                onRefresh();
-                            } catch (err) {
-                                toast.error("Failed to update mode");
-                            }
-                        }}
-                    >
-                        <option>Only Zhakra</option>
-                        <option>Only Auto Expo</option>
-                        <option>Both</option>
-                    </select>
                     <button className="btn-primary" onClick={() => setShowForm(!showForm)}><FiPlus /> {showForm ? 'Back to List' : 'Create Event'}</button>
                 </div>
             </div>
@@ -297,27 +284,6 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                 <div className="glass-card" style={{ border: '2px solid var(--mercedes-green)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
                         <div>
-                            <label style={labelStyle}>Event Group</label>
-                            <select
-                                style={inputStyle}
-                                value={formData.eventGroup}
-                                onChange={e => {
-                                    const group = e.target.value;
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        eventGroup: group,
-                                        teamSize: group === 'Auto Expo' ? 1 : prev.teamSize,
-                                        maxSelectableEvents: group === 'Auto Expo' ? 1 : prev.maxSelectableEvents,
-                                        selectionMode: group === 'Auto Expo' ? 'Both' : prev.selectionMode
-                                    }));
-                                }}
-                            >
-                                <option>Zhakra</option>
-                                <option>Auto Expo</option>
-                            </select>
-                        </div>
-
-                        <div>
                             <label style={labelStyle}>Event Name</label>
                             <input required placeholder="Name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                         </div>
@@ -330,6 +296,17 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             </select>
                         </div>
 
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Event Description *</label>
+                            <textarea
+                                required
+                                placeholder="Detailed event description for registration page..."
+                                style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
+                                value={formData.description}
+                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            />
+                        </div>
+
                         <div>
                             <label style={labelStyle}>Event Date & Time</label>
                             <input required type="datetime-local" style={inputStyle} value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
@@ -340,28 +317,18 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             <input required type="datetime-local" style={inputStyle} value={formData.closingDate} onChange={e => setFormData({ ...formData, closingDate: e.target.value })} />
                         </div>
 
-                        {/* DYNAMIC FIELDS FOR ZHAKRA / TEAM EVENTS */}
-                        {formData.eventGroup === 'Zhakra' && (
-                            <>
-                                <div>
-                                    <label style={labelStyle}>Max Team Size</label>
-                                    <input required type="number" min="1" style={inputStyle} value={formData.teamSize} onChange={e => setFormData({ ...formData, teamSize: e.target.value })} />
-                                </div>
-                                <div>
-                                    <label style={labelStyle}>Max Selectable Events</label>
-                                    <input required type="number" min="1" style={inputStyle} value={formData.maxSelectableEvents} onChange={e => setFormData({ ...formData, maxSelectableEvents: e.target.value })} />
-                                    <small style={{ fontSize: '0.7rem', opacity: 0.5 }}>Events per registration</small>
-                                </div>
-                                <div>
-                                    <label style={labelStyle}>Selection Mode</label>
-                                    <select style={inputStyle} value={formData.selectionMode} onChange={e => setFormData({ ...formData, selectionMode: e.target.value })}>
-                                        <option>Only Zhakra</option>
-                                        <option>Only Auto Expo</option>
-                                        <option>Both</option>
-                                    </select>
-                                </div>
-                            </>
-                        )}
+                        <div>
+                            <label style={labelStyle}>Max Team Size</label>
+                            <input required type="number" min="1" style={inputStyle} value={formData.teamSize} onChange={e => setFormData({ ...formData, teamSize: e.target.value })} />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Selection Mode</label>
+                            <select style={inputStyle} value={formData.selectionMode} onChange={e => setFormData({ ...formData, selectionMode: e.target.value })}>
+                                <option>Only Zhakra</option>
+                                <option>Only Auto Expo</option>
+                                <option>Both</option>
+                            </select>
+                        </div>
 
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <div style={{ flex: 1 }}>
@@ -380,6 +347,58 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>WhatsApp Group Link</label>
                             <input required placeholder="https://chat.whatsapp.com/..." style={inputStyle} value={formData.whatsappLink} onChange={e => setFormData({ ...formData, whatsappLink: e.target.value })} />
+                        </div>
+
+                        {/* SUB-EVENTS BUILDER */}
+                        <div style={{ gridColumn: '1 / -1', background: 'rgba(0, 161, 155, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid var(--mercedes-green)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                <label style={{ ...labelStyle, marginBottom: 0 }}>Sub-Events Configuration (Optional)</label>
+                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, subEvents: [...(prev.subEvents || []), { title: '', description: '' }] }))} style={{ color: 'var(--mercedes-green)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <FiPlus /> Add Sub-Event
+                                </button>
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={labelStyle}>Max Selectable Sub-Events</label>
+                                <input type="number" min="0" style={{ ...inputStyle, width: '100px' }} value={formData.maxSelectableEvents} onChange={e => setFormData({ ...formData, maxSelectableEvents: e.target.value })} />
+                                <small style={{ display: 'block', opacity: 0.5, marginTop: '5px' }}>0 means no limit. Forces checkboxes on registration.</small>
+                            </div>
+
+                            {(formData.subEvents || []).map((sub, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <input
+                                            required
+                                            placeholder="Sub-event Title"
+                                            style={inputStyle}
+                                            value={sub.title}
+                                            onChange={e => {
+                                                const newSub = [...formData.subEvents];
+                                                newSub[idx].title = e.target.value;
+                                                setFormData({ ...formData, subEvents: newSub });
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ flex: 2 }}>
+                                        <input
+                                            placeholder="Optional Description"
+                                            style={inputStyle}
+                                            value={sub.description}
+                                            onChange={e => {
+                                                const newSub = [...formData.subEvents];
+                                                newSub[idx].description = e.target.value;
+                                                setFormData({ ...formData, subEvents: newSub });
+                                            }}
+                                        />
+                                    </div>
+                                    <button type="button" onClick={() => {
+                                        const newSub = formData.subEvents.filter((_, i) => i !== idx);
+                                        setFormData({ ...formData, subEvents: newSub });
+                                    }} style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: 'none', borderRadius: '8px', padding: '12px 15px', cursor: 'pointer' }}>
+                                        <FiTrash2 />
+                                    </button>
+                                </div>
+                            ))}
                         </div>
 
                         {/* CUSTOM FIELDS BUILDER */}
@@ -652,6 +671,107 @@ const AdminsPanel = ({ onRefresh }) => {
     );
 };
 
+const MembersPanel = ({ data, onRefresh, onDelete }) => {
+    const [file, setFile] = useState(null);
+    const [formData, setFormData] = useState({
+        name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const API_URL = '/api';
+
+    const handleUpload = async (e) => {
+        e.preventDefault();
+        if (!file) return toast.error('Select a profile image first');
+        if (!formData.name || !formData.position) return toast.error('Name and Position are mandatory');
+
+        setLoading(true);
+        const data = new FormData();
+        data.append('image', file);
+        Object.keys(formData).forEach(key => data.append(key, formData[key]));
+
+        try {
+            await axios.post(`${API_URL}/members`, data, { withCredentials: true });
+            toast.success('AEA Member added successfully');
+            setFile(null);
+            setFormData({ name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: '' });
+            onRefresh();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Upload failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div>
+            <h1>AEA Members Management</h1>
+            <div className="glass-card" style={{ marginBottom: '40px' }}>
+                <form onSubmit={handleUpload} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                    <div>
+                        <label style={labelStyle}>Profile Image *</label>
+                        <input type="file" onChange={e => setFile(e.target.files[0])} accept="image/*" style={{ width: '100%' }} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Full Name *</label>
+                        <input required placeholder="Name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Position *</label>
+                        <input required placeholder="eg: Vice President" style={inputStyle} value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Mobile</label>
+                        <input placeholder="Mobile" style={inputStyle} value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Email</label>
+                        <input type="email" placeholder="Email" style={inputStyle} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Instagram ID</label>
+                        <input placeholder="Insta Username" style={inputStyle} value={formData.instagram} onChange={e => setFormData({ ...formData, instagram: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>LinkedIn ID</label>
+                        <input placeholder="LinkedIn Username" style={inputStyle} value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>GitHub ID</label>
+                        <input placeholder="GitHub Username" style={inputStyle} value={formData.github} onChange={e => setFormData({ ...formData, github: e.target.value })} />
+                    </div>
+                    <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px' }}>{loading ? 'Adding Member...' : 'Register Member'}</button>
+                </form>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }} className="admin-grid">
+                {data.map(item => (
+                    <div key={item._id} style={{ position: 'relative', borderRadius: '15px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', background: '#111' }}>
+                        <img src={item.image.url} alt={item.name} style={{ width: '100%', height: '300px', objectFit: 'cover' }} />
+                        <div style={{ padding: '20px' }}>
+                            <h3 style={{ margin: 0, color: 'var(--mercedes-green)' }}>{item.name}</h3>
+                            <p style={{ margin: '5px 0', fontSize: '0.9rem', opacity: 0.8 }}>{item.position}</p>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px', fontSize: '0.8rem', opacity: 0.5 }}>
+                                {item.mobile && <span>📞</span>}
+                                {item.email && <span>📧</span>}
+                                {item.instagram && <span>📸</span>}
+                                {item.linkedin && <span>💼</span>}
+                                {item.github && <span>💻</span>}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => onDelete(item._id)}
+                            style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255, 77, 77, 0.9)', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}
+                        >
+                            <FiTrash2 />
+                        </button>
+                    </div>
+                ))}
+                {data.length === 0 && <p style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.4 }}>No members registered.</p>}
+            </div>
+        </div>
+    );
+};
+
 // Styles
 const sidebarBtnStyle = {
     width: '100%',
@@ -687,7 +807,7 @@ const actionBtnStyle = (color) => ({
 const inputStyle = {
     width: '100%',
     padding: '12px',
-    background: 'var(--mercedes-green)',
+    background: 'rgba(255,255,255,0.03)',
     border: '1px solid rgba(255,255,255,0.2)',
     borderRadius: '8px',
     color: 'white',

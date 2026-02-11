@@ -12,6 +12,7 @@ import Registration from './pages/Registration';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import Highlights from './pages/Highlights';
+import AeaMembers from './pages/AeaMembers';
 
 const Layout = ({ children }) => {
     return (
@@ -31,6 +32,7 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/register" element={<Registration />} />
                     <Route path="/highlights" element={<Highlights />} />
+                    <Route path="/aea" element={<AeaMembers />} />
                     <Route path="/admin-login" element={<AdminLogin />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 </Routes>
