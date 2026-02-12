@@ -74,8 +74,8 @@ const Home = () => {
                             style={{ textAlign: 'left', border: '1px solid rgba(0, 161, 155, 0.2)' }}
                         >
                             <span style={{ background: 'var(--mercedes-green)', color: '#000', padding: '5px 10px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>{ev.type}</span>
-                            <h3 style={{ marginTop: '15px' }}>{ev.name}</h3>
-                            <p style={{ margin: '10px 0', fontSize: '0.85rem', opacity: 0.9, color: '#eee', lineHeight: '1.4' }}>{ev.description}</p>
+                            <h3 className="text-box" style={{ marginTop: '15px' }}>{ev.name}</h3>
+                            <p className="text-box" style={{ margin: '10px 0', fontSize: '0.85rem', opacity: 0.9, color: '#eee', lineHeight: '1.4' }}>{ev.description}</p>
                             <p style={{ opacity: 0.6, fontSize: '0.8rem' }}>Date: {new Date(ev.date).toLocaleDateString()}</p>
                             <p style={{ margin: '10px 0', fontSize: '1.1rem' }}>Entry: {'\u20B9'}{ev.feeAmount}</p>
                             <p style={{ marginBottom: '20px', fontSize: '0.8rem', color: new Date() > new Date(ev.closingDate) ? '#ff4d4d' : 'var(--mercedes-green)', fontWeight: 'bold' }}>

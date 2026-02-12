@@ -39,8 +39,24 @@ const AeaMembers = () => {
 
     if (loading) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#050505' }}>
-                <div className="spinner-small" style={{ width: '40px', height: '40px' }} />
+            <div style={{ paddingTop: '120px', minHeight: '100vh', background: '#050505', color: 'white' }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+                        <div className="shimmer" style={{ width: '300px', height: '50px', margin: '0 auto 20px', borderRadius: '8px' }} />
+                        <div className="shimmer" style={{ width: '200px', height: '20px', margin: '0 auto', borderRadius: '4px' }} />
+                    </div>
+                    <div className="members-responsive-grid">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                            <div key={i} style={{ borderRadius: '20px', background: '#111', height: '450px', overflow: 'hidden' }}>
+                                <div className="shimmer" style={{ width: '100%', height: '350px' }} />
+                                <div style={{ padding: '25px' }}>
+                                    <div className="shimmer" style={{ width: '80%', height: '20px', margin: '0 auto 10px', borderRadius: '4px' }} />
+                                    <div className="shimmer" style={{ width: '60%', height: '15px', margin: '0 auto', borderRadius: '4px' }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -53,7 +69,7 @@ const AeaMembers = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     style={{ textAlign: 'center', marginBottom: '80px' }}
                 >
-                    <h1 style={{ fontSize: 'clamp(2.5rem, 8vw, 4rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', margin: 0 }}>
+                    <h1 className="text-box" style={{ fontSize: 'clamp(2.5rem, 8vw, 4rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', margin: 0 }}>
                         AEA <span style={{ color: 'var(--mercedes-green)' }}>FAMILY</span>
                     </h1>
                     <div style={{ width: '100px', height: '4px', background: 'var(--mercedes-green)', margin: '20px auto' }} />
@@ -64,11 +80,7 @@ const AeaMembers = () => {
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                        gap: '30px'
-                    }}
+                    className="members-responsive-grid"
                 >
                     {members.map((member) => (
                         <motion.div
@@ -85,19 +97,29 @@ const AeaMembers = () => {
                                 transition: '0.3s'
                             }}
                         >
-                            <div style={{ height: '350px', overflow: 'hidden', position: 'relative' }}>
-                                <img
-                                    src={member.image.url}
-                                    alt={member.name}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover',
-                                        transition: '0.5s',
-                                        transform: hoveredId === member._id ? 'scale(1.1)' : 'scale(1)',
-                                        filter: hoveredId === member._id ? 'brightness(0.3)' : 'brightness(0.8)'
-                                    }}
-                                />
+                            <div style={{ height: '350px', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
+                                {member.image?.url ? (
+                                    <img
+                                        src={member.image.url}
+                                        alt={member.name}
+                                        loading="lazy"
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            transition: '0.5s',
+                                            transform: hoveredId === member._id ? 'scale(1.1)' : 'scale(1)',
+                                            filter: hoveredId === member._id ? 'brightness(0.3)' : 'brightness(0.8)'
+                                        }}
+                                        onError={(e) => {
+                                            e.target.src = 'https://via.placeholder.com/400x500?text=AEA+Member';
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+                                        <FiInfo size={40} />
+                                    </div>
+                                )}
 
                                 <AnimatePresence>
                                     {hoveredId === member._id && (
@@ -109,7 +131,9 @@ const AeaMembers = () => {
                                                 position: 'absolute',
                                                 top: 0, left: 0, width: '100%', height: '100%',
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                gap: '20px', padding: '20px', textAlign: 'center'
+                                                gap: '20px', padding: '20px', textAlign: 'center',
+                                                background: 'rgba(0,0,0,0.6)',
+                                                backdropFilter: 'blur(4px)'
                                             }}
                                         >
                                             <p style={{ color: 'var(--mercedes-green)', fontWeight: 900, fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase' }}>Connect</p>
@@ -126,35 +150,41 @@ const AeaMembers = () => {
                             </div>
 
                             <div style={{ padding: '25px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                <h3 style={{ margin: '0 0 5px', fontSize: '1.2rem', fontWeight: 700 }}>{member.name}</h3>
-                                <p style={{ margin: 0, color: 'var(--mercedes-green)', fontSize: '0.9rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>{member.position}</p>
+                                <h3 className="text-box" style={{ margin: '0 0 5px', fontSize: '1.2rem', fontWeight: 700 }}>{member.name || 'Member Name'}</h3>
+                                <p className="text-box" style={{ margin: 0, color: 'var(--mercedes-green)', fontSize: '0.9rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>{member.position || 'Position'}</p>
                             </div>
                         </motion.div>
                     ))}
                 </motion.div>
 
                 {members.length === 0 && (
-                    <div style={{ textAlign: 'center', py: '50px', opacity: 0.4 }}>
+                    <div style={{ textAlign: 'center', padding: '100px 20px', opacity: 0.4 }}>
                         <FiInfo size={40} style={{ marginBottom: '20px' }} />
-                        <p>The family grid is being indexed. Check back soon.</p>
+                        <p style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>No members added yet. Check back soon.</p>
                     </div>
                 )}
             </div>
 
             <style>{`
-                .spinner-small {
-                    width: 20px;
-                    height: 20px;
-                    border: 2px solid rgba(0, 161, 155, 0.3);
-                    border-top-color: var(--mercedes-green);
-                    border-radius: 50%;
-                    animation: spin 0.8s linear infinite;
+                .members-responsive-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 30px;
                 }
-                @keyframes spin { to { transform: rotate(360deg); } }
+                @media (max-width: 1100px) {
+                    .members-responsive-grid { grid-template-columns: repeat(3, 1fr); }
+                }
+                @media (max-width: 768px) {
+                    .members-responsive-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+                }
+                @media (max-width: 480px) {
+                    .members-responsive-grid { grid-template-columns: 1fr; }
+                }
             `}</style>
         </div>
     );
 };
+
 
 const SocialIcon = ({ icon, href }) => (
     <motion.a

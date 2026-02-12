@@ -296,8 +296,8 @@ const Registration = () => {
                                         <div style={{ position: 'absolute', top: '15px', right: '15px', width: '18px', height: '18px', borderRadius: '50%', border: '2px solid var(--mercedes-green)', background: selected ? 'var(--mercedes-green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {selected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'black' }} />}
                                         </div>
-                                        <h4 style={{ margin: 0, color: selected ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h4>
-                                        <p style={{ margin: '8px 0', fontSize: '0.9rem', opacity: 0.8, color: 'white', lineHeight: '1.4' }}>{ev.description}</p>
+                                        <h4 className="text-box" style={{ margin: 0, color: selected ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h4>
+                                        <p className="text-box" style={{ margin: '8px 0', fontSize: '0.9rem', opacity: 0.8, color: 'white', lineHeight: '1.4' }}>{ev.description}</p>
                                         <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{'\u20B9'}{ev.feeAmount}</p>
                                         {passed && <p style={{ color: '#ff4d4d', fontSize: '0.7rem', marginTop: '10px', fontWeight: 'bold' }}>CLOSED</p>}
                                     </div>
@@ -348,8 +348,8 @@ const Registration = () => {
                                                         }}
                                                         onMouseEnter={() => setCursor(index)}
                                                     >
-                                                        <div style={{ fontWeight: 'bold', color: 'white' }}>{college.name}</div>
-                                                        <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{college.district} | {college.type}</div>
+                                                        <div className="text-box" style={{ fontWeight: 'bold', color: 'white' }}>{college.name}</div>
+                                                        <div className="text-box" style={{ fontSize: '0.75rem', opacity: 0.6 }}>{college.district} | {college.type}</div>
                                                     </div>
                                                 ))}
                                                 <div
@@ -456,8 +456,8 @@ const Registration = () => {
                                                             {isChecked && <span style={{ color: 'black', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
                                                         </div>
                                                         <div style={{ flex: 1 }}>
-                                                            <p style={{ margin: 0, fontSize: '1.1rem', color: isChecked ? 'var(--mercedes-green)' : 'white', fontWeight: isChecked ? '700' : '500' }}>{sub.title}</p>
-                                                            {sub.description && <p style={{ margin: '5px 0 0', fontSize: '0.85rem', opacity: 0.6, color: '#ccc' }}>{sub.description}</p>}
+                                                            <p className="text-box" style={{ margin: 0, fontSize: '1.1rem', color: isChecked ? 'var(--mercedes-green)' : 'white', fontWeight: isChecked ? '700' : '500' }}>{sub.title}</p>
+                                                            {sub.description && <p className="text-box" style={{ margin: '5px 0 0', fontSize: '0.85rem', opacity: 0.6, color: '#ccc' }}>{sub.description}</p>}
                                                         </div>
                                                     </div>
                                                 );

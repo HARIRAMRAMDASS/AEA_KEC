@@ -446,8 +446,8 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                     {events.map(ev => (
                         <div key={ev._id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', flexWrap: 'wrap', gap: '15px' }}>
                             <div>
-                                <h3 style={{ marginBottom: '5px' }}>{ev.name}</h3>
-                                <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>{new Date(ev.date).toLocaleString()} | {ev.type} | {ev.feeType}: {'\u20B9'}{ev.feeAmount}</p>
+                                <h3 className="text-box" style={{ marginBottom: '5px' }}>{ev.name}</h3>
+                                <p className="text-box" style={{ fontSize: '0.8rem', opacity: 0.6 }}>{new Date(ev.date).toLocaleString()} | {ev.type} | {ev.feeType}: {'\u20B9'}{ev.feeAmount}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button onClick={() => onExport(ev._id)} style={actionBtnStyle('var(--mercedes-green)')}><FiDownload /> Excel</button>
@@ -534,8 +534,8 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
                                 <img src={item.imageUrl} alt="bearer" style={{ width: '100%', height: '250px', objectFit: 'cover' }} />
                                 {type === 'bearers' && (
                                     <div style={{ padding: '15px' }}>
-                                        <p style={{ margin: 0, color: 'var(--mercedes-green)', fontWeight: 'bold' }}>{item.name}</p>
-                                        <p style={{ margin: '5px 0 0', fontSize: '0.8rem', opacity: 0.6 }}>{item.year}</p>
+                                        <p className="text-box" style={{ margin: 0, color: 'var(--mercedes-green)', fontWeight: 'bold' }}>{item.name}</p>
+                                        <p className="text-box" style={{ margin: '5px 0 0', fontSize: '0.8rem', opacity: 0.6 }}>{item.year}</p>
                                     </div>
                                 )}
                             </>
@@ -704,8 +704,8 @@ const PaymentsPanel = ({ data, onRefresh }) => {
                             </a>
                         </div>
                         <div>
-                            <h3 style={{ margin: 0 }}>{pay.participantName}</h3>
-                            <p style={{ color: 'var(--mercedes-green)', fontWeight: 'bold', margin: '5px 0' }}>{pay.eventId?.name}</p>
+                            <h3 className="text-box" style={{ margin: 0 }}>{pay.participantName}</h3>
+                            <p className="text-box" style={{ color: 'var(--mercedes-green)', fontWeight: 'bold', margin: '5px 0' }}>{pay.eventId?.name}</p>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
                                 <div>
