@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle, FiSettings, FiCreditCard, FiCopy } from 'react-icons/fi';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('events');
@@ -86,6 +86,7 @@ const AdminDashboard = () => {
             case 'videos': return <MediaPanel title="Videos" type="videos" data={videos} onRefresh={fetchData} onDelete={(id) => deleteItem('videos', id)} isVideo />;
             case 'members': return <MembersPanel data={members} onRefresh={fetchData} onDelete={(id) => deleteItem('members', id)} />;
             case 'payments': return <PaymentsPanel data={payments} onRefresh={fetchData} />;
+            case 'paymentSettings': return <PaymentSettingsPanel />;
             case 'admins': return <AdminsPanel onRefresh={fetchData} />;
             default: return null;
         }
@@ -129,6 +130,7 @@ const AdminDashboard = () => {
                 <SidebarLink active={activeTab === 'videos'} icon={<FiVideo />} label="Videos" onClick={() => { setActiveTab('videos'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'members'} icon={<FiUsers />} label="AEA Members" onClick={() => { setActiveTab('members'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'payments'} icon={<FiCheckCircle />} label="Payment Verification" onClick={() => { setActiveTab('payments'); setIsSidebarOpen(false); }} />
+                <SidebarLink active={activeTab === 'paymentSettings'} icon={<FiCreditCard />} label="Payment Settings" onClick={() => { setActiveTab('paymentSettings'); setIsSidebarOpen(false); }} />
                 <SidebarLink active={activeTab === 'admins'} icon={<FiUsers />} label="Admins" onClick={() => { setActiveTab('admins'); setIsSidebarOpen(false); }} />
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -940,5 +942,178 @@ const inputStyle = {
 };
 
 const labelStyle = { display: 'block', marginBottom: '8px', fontSize: '0.8rem', opacity: 0.6, letterSpacing: '1px', textTransform: 'uppercase' };
+
+const PaymentSettingsPanel = () => {
+    const [config, setConfig] = useState({
+        paymentMode: 'QR',
+        accountHolderName: '',
+        accountNumber: '',
+        ifscCode: '',
+        bankName: '',
+        qrImageUrl: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const [qrFile, setQrFile] = useState(null);
+    const API_URL = '/api/payment-config';
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data } = await axios.get(API_URL);
+            setConfig(data);
+        } catch (err) {
+            toast.error('Failed to load payment settings');
+        }
+    };
+
+    const handleModeUpdate = async (mode) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.put(`${API_URL}/mode`, { paymentMode: mode }, { withCredentials: true });
+            setConfig(data);
+            toast.success(`Payment mode switched to ${mode}`);
+        } catch (err) {
+            toast.error('Failed to update payment mode');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBankUpdate = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const { data } = await axios.put(`${API_URL}/bank`, {
+                accountHolderName: config.accountHolderName,
+                accountNumber: config.accountNumber,
+                ifscCode: config.ifscCode,
+                bankName: config.bankName
+            }, { withCredentials: true });
+            setConfig(data);
+            toast.success('Bank details updated');
+        } catch (err) {
+            toast.error('Failed to update bank details');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleQrUpload = async (e) => {
+        e.preventDefault();
+        if (!qrFile) return toast.error('Please select a QR code image');
+        setLoading(true);
+        const formData = new FormData();
+        formData.append('qrImage', qrFile);
+        try {
+            const { data } = await axios.put(`${API_URL}/qr`, formData, {
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setConfig(data);
+            setQrFile(null);
+            toast.success('QR Code updated');
+        } catch (err) {
+            toast.error('QR Upload failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ maxWidth: '800px' }} className="animate-fade">
+            <h1 style={{ marginBottom: '30px' }}>Payment Configuration</h1>
+
+            <div className="glass-card" style={{ marginBottom: '30px', border: '1px solid rgba(0, 161, 155, 0.2)' }}>
+                <label style={labelStyle}>Active Payment Method</label>
+                <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+                    <button
+                        onClick={() => handleModeUpdate('QR')}
+                        style={{
+                            ...sidebarBtnStyle,
+                            flex: 1,
+                            justifyContent: 'center',
+                            background: config.paymentMode === 'QR' ? 'rgba(0, 161, 155, 0.2)' : 'transparent',
+                            border: config.paymentMode === 'QR' ? '1px solid var(--mercedes-green)' : '1px solid rgba(255,255,255,0.1)',
+                            color: config.paymentMode === 'QR' ? 'var(--mercedes-green)' : 'white'
+                        }}
+                    >
+                        <FiImage /> QR Code
+                    </button>
+                    <button
+                        onClick={() => handleModeUpdate('BANK')}
+                        style={{
+                            ...sidebarBtnStyle,
+                            flex: 1,
+                            justifyContent: 'center',
+                            background: config.paymentMode === 'BANK' ? 'rgba(0, 161, 155, 0.2)' : 'transparent',
+                            border: config.paymentMode === 'BANK' ? '1px solid var(--mercedes-green)' : '1px solid rgba(255,255,255,0.1)',
+                            color: config.paymentMode === 'BANK' ? 'var(--mercedes-green)' : 'white'
+                        }}
+                    >
+                        <FiCreditCard /> Bank Transfer
+                    </button>
+                </div>
+            </div>
+
+            {config.paymentMode === 'BANK' ? (
+                <div className="glass-card animate-fade">
+                    <h3 style={{ marginBottom: '25px', color: 'var(--mercedes-green)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FiCreditCard /> Bank Account Details
+                    </h3>
+                    <form onSubmit={handleBankUpdate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Account Holder Name</label>
+                            <input required style={inputStyle} value={config.accountHolderName} onChange={e => setConfig({ ...config, accountHolderName: e.target.value })} placeholder="eg: AEA Association KEC" />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Account Number</label>
+                            <input required style={inputStyle} value={config.accountNumber} onChange={e => setConfig({ ...config, accountNumber: e.target.value })} placeholder="1234567890" />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>IFSC Code</label>
+                            <input required style={inputStyle} value={config.ifscCode} onChange={e => setConfig({ ...config, ifscCode: e.target.value })} placeholder="SBIN0001234" />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Bank Name & Branch (Optional)</label>
+                            <input style={inputStyle} value={config.bankName} onChange={e => setConfig({ ...config, bankName: e.target.value })} placeholder="State Bank of India, Perundurai" />
+                        </div>
+                        <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', marginTop: '10px', padding: '15px' }}>
+                            {loading ? 'DEPLOYING UPDATES...' : 'SAVE BANK CONFIGURATION'}
+                        </button>
+                    </form>
+                </div>
+            ) : (
+                <div className="glass-card animate-fade">
+                    <h3 style={{ marginBottom: '25px', color: 'var(--mercedes-green)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FiImage /> QR Code Configuration
+                    </h3>
+                    <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                        {config.qrImageUrl ? (
+                            <div style={{ position: 'relative', display: 'inline-block', padding: '15px', background: 'white', borderRadius: '20px' }}>
+                                <img src={config.qrImageUrl} alt="Payment QR" style={{ width: '220px', height: '220px', objectFit: 'contain' }} />
+                                <div style={{ position: 'absolute', top: '-10px', right: '-10px', background: 'var(--mercedes-green)', color: 'black', padding: '5px 12px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 'bold' }}>ACTIVE</div>
+                            </div>
+                        ) : (
+                            <div style={{ width: '220px', height: '220px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '20px' }}>
+                                <FiImage size={40} style={{ opacity: 0.2 }} />
+                            </div>
+                        )}
+                        <p style={{ marginTop: '15px', fontSize: '0.85rem', opacity: 0.5 }}>Upload your Google Pay / PhonePe / Paytm Merchant QR Code</p>
+                    </div>
+
+                    <form onSubmit={handleQrUpload} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        <input type="file" accept="image/*" onChange={e => setQrFile(e.target.files[0])} style={{ ...inputStyle, padding: '15px' }} />
+                        <button disabled={loading} className="btn-primary" style={{ padding: '15px' }}>
+                            {loading ? 'UPLOADING TO CLOUD...' : 'UPDATE MERCHANT QR'}
+                        </button>
+                    </form>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default AdminDashboard;

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { FiCopy, FiCheck } from 'react-icons/fi';
 import { isMobileDevice, triggerUPIPayment } from '../utils/paymentUtils';
 
 const Registration = () => {
@@ -33,6 +34,8 @@ const Registration = () => {
     const [whatsappLink, setWhatsappLink] = useState(null);
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [showDesktopWarning, setShowDesktopWarning] = useState(false);
+    const [paymentConfig, setPaymentConfig] = useState(null);
+    const [activeCopy, setActiveCopy] = useState(null);
 
     // Search Logic States
     const [searchTerm, setSearchTerm] = useState('');
@@ -43,29 +46,17 @@ const Registration = () => {
     const searchRef = useRef(null);
 
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchPaymentConfig = async () => {
             try {
-                if (eventIdFromUrl) {
-                    const { data } = await axios.get(`${API_URL}/events/${eventIdFromUrl}`);
-                    console.log("DEBUG: Event from URL:", data);
-                    if (data && data._id) {
-                        setEvents([data]);
-                    } else {
-                        toast.error("Event not found");
-                        setEvents([]);
-                    }
-                } else {
-                    const { data } = await axios.get(`${API_URL}/events`);
-                    console.log("DEBUG: All Events fetched:", data);
-                    setEvents(Array.isArray(data) ? data : []);
-                }
+                const { data } = await axios.get(`${API_URL}/payment-config`);
+                setPaymentConfig(data);
             } catch (err) {
-                toast.error("Failed to load event data");
-            } finally {
-                setPageLoading(false);
+                console.error("Failed to load payment config", err);
             }
         };
+
         fetchEvents();
+        fetchPaymentConfig();
 
         // Click outside to close search
         const handleClickOutside = (event) => {
@@ -281,6 +272,13 @@ const Registration = () => {
 
         // Small delay to show loader even on quick redirects
         setTimeout(() => setPaymentLoading(false), 2000);
+    };
+
+    const handleCopy = (text, type) => {
+        navigator.clipboard.writeText(text);
+        setActiveCopy(type);
+        toast.info(`${type} copied to paddock!`);
+        setTimeout(() => setActiveCopy(null), 2000);
     };
 
     if (verificationStatus === 'VERIFIED') {
@@ -519,65 +517,71 @@ const Registration = () => {
                             </AnimatePresence>
 
                             {/* PAYMENT SECTION */}
-                            <div style={{ background: '#FFFFFF', padding: '40px', borderRadius: '25px', color: '#000', textAlign: 'center', marginTop: '50px' }}>
-                                <h2 style={{ marginBottom: '10px', fontWeight: 900 }}>FINISH LINE: PAYMENT</h2>
-                                <p style={{ opacity: 0.6, marginBottom: '30px' }}>Pay via any UPI app (GPay/PhonePe/Paytm)</p>
-
-                                <div style={{ background: '#f0f0f0', padding: '30px', borderRadius: '20px', marginBottom: '30px' }}>
-                                    <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 10px' }}>Pay ₹{currentEvent.feeAmount}</p>
-                                    <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>to UPI ID: <span style={{ fontWeight: 'bold', color: 'var(--mercedes-green)' }}>{currentEvent.upiId}</span></p>
-
-                                    <button
-                                        type="button"
-                                        onClick={(e) => handleUPIPayment(e)}
-                                        className="btn-primary"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '10px',
-                                            marginTop: '20px',
-                                            width: '100%',
-                                            padding: '18px 30px',
-                                            background: '#000',
-                                            color: 'white',
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}
-                                        disabled={paymentLoading}
-                                    >
-                                        {paymentLoading ? (
-                                            <>
-                                                <div className="spinner-small" style={{ borderTopColor: 'white' }} />
-                                                <span>REDIRECTING TO UPI...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo.png" alt="UPI" style={{ height: '20px', filter: 'brightness(0) invert(1)' }} />
-                                                <span>PAY ₹{currentEvent.feeAmount} NOW</span>
-                                            </>
-                                        )}
-                                    </button>
-
-                                    {showDesktopWarning && !isMobileDevice() && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            style={{
-                                                marginTop: '20px',
-                                                padding: '15px',
-                                                background: 'rgba(255, 165, 0, 0.1)',
-                                                border: '1px solid orange',
-                                                borderRadius: '12px',
-                                                color: '#856404',
-                                                fontSize: '0.9rem',
-                                                fontWeight: 'bold'
-                                            }}
-                                        >
-                                            ⚠️ Please open this page on a mobile device to complete payment directly via UPI apps.
-                                        </motion.div>
-                                    )}
+                            <div style={{ background: '#FFFFFF', padding: '40px', borderRadius: '25px', color: '#000', textAlign: 'center', marginTop: '50px', border: '5px solid var(--mercedes-green)' }}>
+                                <div style={{ display: 'inline-block', padding: '10px 20px', background: 'var(--mercedes-green)', color: 'black', borderRadius: '50px', fontWeight: '900', fontSize: '0.8rem', letterSpacing: '2px', marginBottom: '20px' }}>
+                                    PAYMENT GATEWAY OPEN
                                 </div>
+                                <h2 style={{ marginBottom: '10px', fontWeight: 900 }}>FINISH LINE: PAYMENT</h2>
+
+                                {paymentConfig?.paymentMode === 'BANK' ? (
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ background: '#f8f8f8', padding: '30px', borderRadius: '20px', marginBottom: '30px', textAlign: 'left' }}>
+                                        <p style={{ opacity: 0.6, marginBottom: '20px', textAlign: 'center', fontWeight: 'bold' }}>TRANSFER ₹{currentEvent.feeAmount} via Bank Transfer</p>
+
+                                        <div style={{ border: '1px solid #ddd', borderRadius: '15px', overflow: 'hidden' }}>
+                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
+                                                <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>Account Name</label>
+                                                <p style={{ fontWeight: 'bold', margin: '5px 0' }}>{paymentConfig.accountHolderName}</p>
+                                            </div>
+
+                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>Account Number</label>
+                                                    <p style={{ fontWeight: 'bold', margin: '5px 0', fontSize: '1.2rem', letterSpacing: '1px' }}>{paymentConfig.accountNumber}</p>
+                                                </div>
+                                                <button type="button" onClick={() => handleCopy(paymentConfig.accountNumber, 'Account Number')} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {activeCopy === 'Account Number' ? <FiCheck color="var(--mercedes-green)" /> : <FiCopy />} COPY
+                                                </button>
+                                            </div>
+
+                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>IFSC Code</label>
+                                                    <p style={{ fontWeight: 'bold', margin: '5px 0', fontSize: '1.1rem' }}>{paymentConfig.ifscCode}</p>
+                                                </div>
+                                                <button type="button" onClick={() => handleCopy(paymentConfig.ifscCode, 'IFSC Code')} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {activeCopy === 'IFSC Code' ? <FiCheck color="var(--mercedes-green)" /> : <FiCopy />} COPY
+                                                </button>
+                                            </div>
+
+                                            {paymentConfig.bankName && (
+                                                <div style={{ padding: '20px', background: '#f0f0f0' }}>
+                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block' }}>BANK & BRANCH</label>
+                                                    <p style={{ margin: 0, opacity: 0.8 }}>{paymentConfig.bankName}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p style={{ marginTop: '20px', fontSize: '0.85rem', opacity: 0.7, textAlign: 'center' }}>Instruction: Transfer the exact amount and upload screenshot below.</p>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ background: '#f0f0f0', padding: '30px', borderRadius: '20px', marginBottom: '30px' }}>
+                                        <p style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: '0 0 20px' }}>Pay ₹{currentEvent.feeAmount}</p>
+
+                                        <div style={{ background: 'white', padding: '20px', borderRadius: '15px', display: 'inline-block', marginBottom: '20px', border: '2px dashed var(--mercedes-green)' }}>
+                                            {paymentConfig?.qrImageUrl ? (
+                                                <img src={paymentConfig.qrImageUrl} alt="Merchant QR" style={{ width: '220px', height: '220px', display: 'block' }} />
+                                            ) : (
+                                                <div style={{ width: '220px', height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    Scanning...
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>Scan QR and complete payment via any UPI app.</p>
+
+                                        {/* Keep UPI Pay Now button only if user is on mobile for convenience, or strictly follow "No Dual Display" */}
+                                        {/* User said: "ONLY the selected payment method". So QR mode shows QR image. */}
+                                    </motion.div>
+                                )}
 
                                 <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
                                     <label style={{ ...labelStyle, color: '#333' }}>UPLOAD PAYMENT SCREENSHOT *</label>
