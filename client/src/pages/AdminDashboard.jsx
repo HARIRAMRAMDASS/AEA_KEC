@@ -13,6 +13,7 @@ const AdminDashboard = () => {
     const [members, setMembers] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [error, setError] = useState(null);
+    const [downloadingId, setDownloadingId] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -64,8 +65,29 @@ const AdminDashboard = () => {
         }
     };
 
-    const exportExcel = (eventId) => {
-        window.open(`${API_URL}/events/${eventId}/export`, '_blank');
+    const exportExcel = async (eventId, eventName) => {
+        setDownloadingId(eventId);
+        try {
+            const response = await axiosInstance.get(`/admin/export-excel`, {
+                params: { eventId },
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `participants_${(eventName || 'event').replace(/\s+/g, '_')}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Download Complete');
+        } catch (err) {
+            console.error('Download failed', err);
+            toast.error('Failed to download. Ensure participants exist and are verified.');
+        } finally {
+            setDownloadingId(null);
+        }
     };
 
     const renderContent = () => {
@@ -78,7 +100,7 @@ const AdminDashboard = () => {
         );
 
         switch (activeTab) {
-            case 'events': return <EventsPanel events={events} onRefresh={fetchData} onDelete={(id) => deleteItem('events', id)} onExport={exportExcel} />;
+            case 'events': return <EventsPanel events={events} onRefresh={fetchData} onDelete={(id) => deleteItem('events', id)} onExport={exportExcel} downloadingId={downloadingId} />;
             case 'bearers': return <MediaPanel title="Office Bearers" type="bearers" data={bearers} onRefresh={fetchData} onDelete={(id) => deleteItem('bearers', id)} />;
             case 'videos': return <MediaPanel title="Videos" type="videos" data={videos} onRefresh={fetchData} onDelete={(id) => deleteItem('videos', id)} isVideo />;
             case 'members': return <MembersPanel data={members} onRefresh={fetchData} onDelete={(id) => deleteItem('members', id)} />;
@@ -199,7 +221,7 @@ const SidebarLink = ({ active, icon, label, onClick }) => (
     </button>
 );
 
-const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
+const EventsPanel = ({ events, onRefresh, onDelete, onExport, downloadingId }) => {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: []
@@ -518,7 +540,18 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                                 <p className="text-box" style={{ fontSize: '0.8rem', opacity: 0.6 }}>{new Date(ev.date).toLocaleString()} | {ev.type} | {ev.feeType}: {'\u20B9'}{ev.feeAmount}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => onExport(ev._id)} style={actionBtnStyle('var(--mercedes-green)')}><FiDownload /> Excel</button>
+                                <button
+                                    onClick={() => onExport(ev._id, ev.name)}
+                                    disabled={downloadingId === ev._id}
+                                    style={{
+                                        ...actionBtnStyle('var(--mercedes-green)'),
+                                        opacity: downloadingId === ev._id ? 0.7 : 1,
+                                        cursor: downloadingId === ev._id ? 'wait' : 'pointer'
+                                    }}
+                                >
+                                    {downloadingId === ev._id ? <span className="spinner-small" style={{ width: '12px', height: '12px', borderTopColor: 'var(--mercedes-green)' }} /> : <FiDownload />}
+                                    {downloadingId === ev._id ? ' Exporting...' : ' Excel'}
+                                </button>
                                 <button onClick={() => { setEditingQrEvent(ev); }} style={actionBtnStyle('#FFA500')}><FiImage /> Edit QR</button>
                                 <button onClick={() => onDelete(ev._id)} style={actionBtnStyle('#ff4d4d')}><FiTrash2 /> Delete</button>
                             </div>
