@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { toast } from 'react-toastify';
 import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle, FiSettings, FiCreditCard, FiCopy, FiRefreshCw, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -15,8 +15,6 @@ const AdminDashboard = () => {
     const [error, setError] = useState(null);
     const navigate = useNavigate();
 
-    const API_URL = '/api';
-
     useEffect(() => {
         const admin = localStorage.getItem('adminInfo');
         if (!admin) {
@@ -28,6 +26,12 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
+            const [evRes, brRes, viRes, memRes] = await Promise.all([
+                axiosInstance.get('/events'),
+                axiosInstance.get('/bearers'),
+                axiosInstance.get('/videos'),
+                axiosInstance.get('/members')
+            ]);
             setEvents(evRes.data);
             setBearers(brRes.data);
             setVideos(viRes.data);
@@ -41,9 +45,10 @@ const AdminDashboard = () => {
 
     const handleLogout = async () => {
         try {
-            await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
+            await axiosInstance.post(`/auth/logout`);
         } finally {
             localStorage.removeItem('adminInfo');
+            localStorage.removeItem('adminToken'); // Also clear token
             navigate('/admin-login');
         }
     };
@@ -51,7 +56,7 @@ const AdminDashboard = () => {
     const deleteItem = async (type, id) => {
         if (!window.confirm('Are you sure you want to delete this?')) return;
         try {
-            await axios.delete(`${API_URL}/${type}/${id}`, { withCredentials: true });
+            await axiosInstance.delete(`/${type}/${id}`);
             toast.success('Deleted successfully');
             fetchData();
         } catch (err) {
@@ -206,8 +211,6 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const [newQrPreview, setNewQrPreview] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const API_URL = '/api';
-
     const handleUpdateQr = async (e) => {
         e.preventDefault();
         if (!newQrFile) return toast.error('Please select a new QR code image');
@@ -217,8 +220,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         form.append('qrCode', newQrFile);
 
         try {
-            await axios.put(`${API_URL}/events/${editingQrEvent._id}/qr`, form, {
-                withCredentials: true,
+            await axiosInstance.put(`/events/${editingQrEvent._id}/qr`, form, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             toast.success('QR Code updated successfully');
@@ -249,8 +251,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
         submitData.append('qrCode', qrFile);
 
         try {
-            await axios.post(`${API_URL}/events`, submitData, {
-                withCredentials: true,
+            await axiosInstance.post(`/events`, submitData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             toast.success('Event Created with QR Payment');
@@ -535,8 +536,6 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
     const [name, setName] = useState('');
     const [year, setYear] = useState('');
     const [loading, setLoading] = useState(false);
-    const API_URL = '/api';
-
     const handleUpload = async (e) => {
         e.preventDefault();
         if (!file) return toast.error('Select a file first');
@@ -551,9 +550,7 @@ const MediaPanel = ({ title, type, data, onRefresh, onDelete, isVideo = false })
         }
 
         try {
-            await axios.post(`${API_URL}/${type}`, formData, {
-                withCredentials: true
-            });
+            await axiosInstance.post(`/${type}`, formData);
             toast.success('Successfully uploaded to server');
             setFile(null);
             setName('');
@@ -633,7 +630,7 @@ const AdminsPanel = ({ onRefresh }) => {
 
     const fetchAdmins = async () => {
         try {
-            const { data } = await axios.get(`${API_URL}/auth`, { withCredentials: true });
+            const { data } = await axiosInstance.get(`/auth`);
             setAdmins(data);
         } catch (err) {
             console.error('Failed to fetch admins');
@@ -644,7 +641,7 @@ const AdminsPanel = ({ onRefresh }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post(`${API_URL}/auth/register`, formData, { withCredentials: true });
+            await axiosInstance.post('/auth/register', formData);
             toast.success('Access Granted to new Admin');
             setFormData({ email: '', password: '' });
             fetchAdmins();
@@ -658,7 +655,7 @@ const AdminsPanel = ({ onRefresh }) => {
     const handleDelete = async (id) => {
         if (!window.confirm('Remove this admin?')) return;
         try {
-            await axios.delete(`${API_URL}/auth/${id}`, { withCredentials: true });
+            await axiosInstance.delete(`/auth/${id}`);
             toast.success('Admin removed');
             fetchAdmins();
         } catch (err) {
@@ -744,8 +741,7 @@ const MembersPanel = ({ data, onRefresh, onDelete }) => {
         Object.keys(formData).forEach(key => form.append(key, formData[key]));
 
         try {
-            await axios.post(`${API_URL}/members`, form, {
-                withCredentials: true,
+            await axiosInstance.post('/members', form, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             toast.success('Member added successfully');
@@ -854,24 +850,27 @@ const PaymentsPanel = () => {
     const [totalRecords, setTotalRecords] = useState(0);
     const [fetchError, setFetchError] = useState(null);
 
-    const API_URL = '/api';
-
     const fetchPayments = async () => {
         setLoading(true);
         setFetchError(null);
         try {
-            const { data } = await axios.get(`${API_URL}/events/verify/pending`, {
-                params: { page, limit },
-                withCredentials: true
+            const res = await axiosInstance.get('/events/verify/pending', {
+                params: { page, limit }
             });
+            const data = res.data;
 
             // Defensive checks
             if (data && Array.isArray(data.verifications)) {
                 setPayments(data.verifications);
                 setTotalPages(data.pages || 1);
                 setTotalRecords(data.total || 0);
+            } else if (data && Array.isArray(data.payments)) {
+                // Fallback for user requested structure
+                setPayments(data.payments);
+                setTotalPages(1);
+                setTotalRecords(data.payments.length);
             } else if (Array.isArray(data)) {
-                // Fallback for old API structure
+                // Fallback for simple array
                 setPayments(data);
                 setTotalPages(1);
                 setTotalRecords(data.length);
@@ -901,7 +900,7 @@ const PaymentsPanel = () => {
                 amount: edits[id]?.amount ?? pay.amount
             } : {};
 
-            await axios.post(`${API_URL}/events/verify/${action}/${id}`, payload, { withCredentials: true });
+            await axiosInstance.post(`/events/verify/${action}/${id}`, payload);
             toast.success(`Payment ${action === 'approve' ? 'Verified' : 'Rejected'}`);
 
             // Refetch current page to keep UI consistent
@@ -912,6 +911,7 @@ const PaymentsPanel = () => {
             setActionLoading(prev => ({ ...prev, [id]: false }));
         }
     };
+
 
     const handleEditChange = (id, field, value) => {
         setEdits(prev => ({

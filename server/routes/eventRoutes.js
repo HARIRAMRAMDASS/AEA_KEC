@@ -203,7 +203,9 @@ router.get('/verify/pending', protect, asyncHandler(async (req, res) => {
         .sort({ createdAt: 1 });
 
     res.json({
+        success: true,
         verifications,
+        payments: verifications, // Alias for compatibility
         page,
         pages: Math.ceil(count / limit),
         total: count

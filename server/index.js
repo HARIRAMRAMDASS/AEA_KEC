@@ -24,7 +24,13 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
-app.use(cors()); // Simple — frontend & backend on same domain, no complex origin checks needed
+app.use(cors({
+    origin: [
+        "http://localhost:3000",
+        "https://aea-kec-website.onrender.com"
+    ],
+    credentials: true,
+}));
 
 // ---------- DATABASE ----------
 if (!process.env.MONGO_URI) {
