@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiCopy, FiCheck } from 'react-icons/fi';
+import { FiCopy, FiCheck, FiAlertTriangle, FiArrowLeft, FiImage, FiCreditCard, FiCheckCircle } from 'react-icons/fi';
 import { isMobileDevice, triggerUPIPayment } from '../utils/paymentUtils';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const Registration = () => {
     const API_URL = '/api';
@@ -12,7 +13,7 @@ const Registration = () => {
     const location = useLocation();
     const eventIdFromUrl = new URLSearchParams(location.search).get('eventId');
 
-    const [events, setEvents] = useState([]); // This will store only the main event if eventId exists
+    const [events, setEvents] = useState([]);
     const [selectedEventIds, setSelectedEventIds] = useState(eventIdFromUrl ? [eventIdFromUrl] : []);
     const [formData, setFormData] = useState({
         teamName: '',
@@ -26,10 +27,11 @@ const Registration = () => {
     const [loading, setLoading] = useState(false);
     const [selectedSubEvents, setSelectedSubEvents] = useState([]);
     const [pageLoading, setPageLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
 
     // Payment Verification States
     const [verificationId, setVerificationId] = useState(null);
-    const [verificationStatus, setVerificationStatus] = useState('IDLE'); // IDLE, PENDING, VERIFIED, REJECTED
+    const [verificationStatus, setVerificationStatus] = useState('IDLE');
     const [ocrData, setOcrData] = useState(null);
     const [whatsappLink, setWhatsappLink] = useState(null);
     const [paymentLoading, setPaymentLoading] = useState(false);
@@ -46,6 +48,37 @@ const Registration = () => {
     const searchRef = useRef(null);
 
     useEffect(() => {
+        const fetchEvents = async () => {
+            try {
+                if (eventIdFromUrl) {
+                    // Validate MongoDB ObjectId format
+                    if (!/^[0-9a-fA-F]{24}$/.test(eventIdFromUrl)) {
+                        setFetchError("Invalid Event link. Please check the URL carefully.");
+                        setPageLoading(false);
+                        return;
+                    }
+
+                    const { data } = await axios.get(`${API_URL}/events/${eventIdFromUrl}`);
+                    if (data && data._id) {
+                        setEvents([data]);
+                        setSelectedEventIds([data._id]);
+                        setFetchError(null);
+                    } else {
+                        setFetchError("Event not found. It might have been deleted or closed.");
+                    }
+                } else {
+                    const { data } = await axios.get(`${API_URL}/events`);
+                    setEvents(Array.isArray(data) ? data : []);
+                    setFetchError(null);
+                }
+            } catch (err) {
+                console.error("Fetch Events Error:", err);
+                setFetchError(err.response?.data?.message || "Failed to load event details. Please check your internet connection.");
+            } finally {
+                setPageLoading(false);
+            }
+        };
+
         const fetchPaymentConfig = async () => {
             try {
                 const { data } = await axios.get(`${API_URL}/payment-config`);
@@ -58,7 +91,6 @@ const Registration = () => {
         fetchEvents();
         fetchPaymentConfig();
 
-        // Click outside to close search
         const handleClickOutside = (event) => {
             if (searchRef.current && !searchRef.current.contains(event.target)) {
                 setShowColleges(false);
@@ -66,16 +98,14 @@ const Registration = () => {
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    }, [eventIdFromUrl]);
 
-    // Debounced Search Implementation
     useEffect(() => {
         const fetchColleges = async () => {
             if (searchTerm.length < 2) {
                 setSuggestedColleges([]);
                 return;
             }
-            // If the searchTerm matches exactly a selected college, don't search
             if (formData.collegeName === searchTerm && formData.collegeId) return;
 
             setIsSearching(true);
@@ -96,7 +126,6 @@ const Registration = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Polling for verification status
     useEffect(() => {
         let interval;
         if (verificationStatus === 'PENDING' && verificationId) {
@@ -107,11 +136,11 @@ const Registration = () => {
                         setVerificationStatus('VERIFIED');
                         setWhatsappLink(data.whatsappLink);
                         clearInterval(interval);
-                        toast.success("Payment Verified! Registration Complete.");
+                        toast.success("Payment Verified! Check your email.");
                     } else if (data.status === 'REJECTED') {
                         setVerificationStatus('REJECTED');
                         clearInterval(interval);
-                        toast.error("Payment rejected. Please check details and re-upload.");
+                        toast.error("Payment rejected. Check details and re-upload.");
                     }
                 } catch (err) {
                     console.error("Polling error", err);
@@ -147,9 +176,9 @@ const Registration = () => {
         setShowColleges(false);
     };
 
-    const selectedEventsData = events.filter(ev => ev && ev._id && selectedEventIds.includes(ev._id));
-    const maxTeamSize = selectedEventsData.length > 0 ? Math.max(...selectedEventsData.map(e => e.teamSize)) : 0;
-    const maxAllowed = events.length > 0 && !eventIdFromUrl ? events[0].maxSelectableEvents : 1;
+    const currentEvent = events.find(e => e._id === selectedEventIds[0]);
+    const isDeadlinePassed = currentEvent && new Date() > new Date(currentEvent.closingDate);
+    const maxTeamSize = currentEvent?.teamSize || 0;
 
     useEffect(() => {
         if (maxTeamSize > 0) {
@@ -161,13 +190,7 @@ const Registration = () => {
     }, [maxTeamSize]);
 
     const handleEventToggle = (eventId) => {
-        const isSelected = selectedEventIds.includes(eventId);
-        if (isSelected) {
-            setSelectedEventIds([]);
-        } else {
-            // SINGLE SELECTION ONLY
-            setSelectedEventIds([eventId]);
-        }
+        setSelectedEventIds([eventId]);
     };
 
     const handleMemberChange = (index, field, value) => {
@@ -177,6 +200,7 @@ const Registration = () => {
     };
 
     const handleSubEventToggle = (eventId, subTitle, max) => {
+        if (!eventId) return;
         setSelectedSubEvents(prev => {
             const existing = prev.find(s => s.eventId === eventId);
             if (!existing) {
@@ -188,7 +212,7 @@ const Registration = () => {
                 return prev.map(s => s.eventId === eventId ? { ...s, subEventTitles: currentTitles.filter(t => t !== subTitle) } : s);
             } else {
                 if (max > 0 && currentTitles.length >= max) {
-                    toast.warning(`You can only select up to ${max} sub-events for this event.`);
+                    toast.warning(`Maximum ${max} selections allowed.`);
                     return prev;
                 }
                 return prev.map(s => s.eventId === eventId ? { ...s, subEventTitles: [...currentTitles, subTitle] } : s);
@@ -199,12 +223,10 @@ const Registration = () => {
     const handleUploadScreenshot = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         setScreenshot(file);
 
-        // Basic Client Validations
-        if (selectedEventIds.length === 0) return toast.error("Please select an event first");
-        if (!formData.collegeName) return toast.error("College name is required");
+        if (selectedEventIds.length === 0) return toast.error("Select an event first");
+        if (!formData.collegeName) return toast.error("College name required");
         const m1 = formData.members[0];
         if (!m1?.name || !m1?.email || !m1?.phone) return toast.error("Lead member details mandatory!");
 
@@ -226,433 +248,218 @@ const Registration = () => {
             const { data } = await axios.post(`${API_URL}/events/verify/upload`, submitData);
             setVerificationId(data._id);
             setVerificationStatus('PENDING');
-            setOcrData({
-                transactionId: data.transactionId,
-                amount: data.amount,
-                upiId: data.upiId
-            });
-            if (data.transactionId) {
-                toast.success("Transaction detected! Waiting for admin approval.");
-            } else {
-                toast.info("Screenshot uploaded. Awaiting manual verification.");
-            }
+            setOcrData({ transactionId: data.transactionId, amount: data.amount, upiId: data.upiId });
+            toast.success("Screenshot uploaded. Admin will verify shortly.");
         } catch (err) {
             toast.error(err.response?.data?.message || "Upload failed");
-            setScreenshot(null);
-            setVerificationStatus('IDLE'); // Reset status on upload failure
+            setVerificationStatus('IDLE');
         } finally {
             setLoading(false);
         }
     };
 
     const handleUPIPayment = (e) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
+        if (e) e.preventDefault();
         if (!currentEvent) return;
-
-        // Validation before redirect
-        if (!currentEvent.upiId || !currentEvent.upiId.includes('@')) {
-            return toast.error("Invalid UPI ID configured for this event. Please contact admin.");
-        }
+        if (!currentEvent.upiId?.includes('@')) return toast.error("Invalid UPI ID. Contact admin.");
 
         setPaymentLoading(true);
-
-        const success = triggerUPIPayment({
+        triggerUPIPayment({
             upiId: currentEvent.upiId,
             name: currentEvent.name,
             amount: currentEvent.feeAmount,
             onDesktop: () => {
                 setShowDesktopWarning(true);
-                toast.info("Please use a mobile device for direct UPI payment.");
+                toast.info("Switch to mobile for direct UPI redirect.");
             }
         });
-
-        // Small delay to show loader even on quick redirects
         setTimeout(() => setPaymentLoading(false), 2000);
     };
 
     const handleCopy = (text, type) => {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text || '');
         setActiveCopy(type);
-        toast.info(`${type} copied to paddock!`);
+        toast.info(`${type} copied!`);
         setTimeout(() => setActiveCopy(null), 2000);
     };
 
-    if (verificationStatus === 'VERIFIED') {
+    if (fetchError) {
         return (
-            <div style={{ paddingTop: '150px', minHeight: '100vh', background: 'var(--primary-black)', textAlign: 'center', padding: '20px' }}>
-                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card" style={{ maxWidth: '600px', margin: '0 auto', padding: '50px' }}>
-                    <div style={{ fontSize: '5rem', color: 'var(--mercedes-green)', marginBottom: '30px' }}>🏁</div>
-                    <h1 style={{ color: 'white', fontWeight: 900, marginBottom: '20px' }}>REGISTRATION CONFIRMED</h1>
-                    <p style={{ opacity: 0.7, marginBottom: '40px', lineHeight: '1.6' }}>Your payment has been verified. A confirmation email with your Ticket ID has been sent to your crew lead.</p>
-
-                    {whatsappLink && (
-                        <div style={{ marginBottom: '40px', padding: '25px', background: 'rgba(0, 161, 155, 0.1)', borderRadius: '20px', border: '1px solid var(--mercedes-green)' }}>
-                            <p style={{ fontWeight: 'bold', color: 'var(--mercedes-green)', marginBottom: '15px' }}>✅ VERIFICATION COMPLETED</p>
-                            <p style={{ fontSize: '0.9rem', marginBottom: '20px', opacity: 0.8 }}>Join the official event WhatsApp group for latest updates and coordination.</p>
-                            <a
-                                href={whatsappLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn-primary"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', background: 'var(--mercedes-green)', color: 'black', textDecoration: 'none', fontWeight: 'bold' }}
-                            >
-                                JOIN WHATSAPP GROUP
-                            </a>
-                        </div>
-                    )}
-
-                    <button onClick={() => window.location.href = '/'} className="btn-primary" style={{ padding: '15px 40px', background: 'transparent', border: '1px solid white', color: 'white' }}>EXIT TO PADDOCK</button>
+            <div style={{ paddingTop: '150px', textAlign: 'center', color: 'white', minHeight: '100vh', background: '#050505' }}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card" style={{ maxWidth: '600px', margin: '0 auto', padding: '50px' }}>
+                    <FiAlertTriangle size={50} color="#ff4d4d" />
+                    <h2 style={{ margin: '20px 0' }}>LINK EXPIRED OR INVALID</h2>
+                    <p style={{ opacity: 0.6, marginBottom: '30px' }}>{fetchError}</p>
+                    <button onClick={() => window.location.href = '/'} className="btn-primary">BACK TO HOME</button>
                 </motion.div>
             </div>
         );
     }
 
-    const currentEvent = events.find(e => e._id === selectedEventIds[0]);
-    const isDeadlinePassed = currentEvent && new Date() > new Date(currentEvent.closingDate);
-
     if (pageLoading) {
         return (
-            <div style={{ paddingTop: '200px', textAlign: 'center', color: 'white', minHeight: '100vh', background: 'var(--primary-black)' }}>
+            <div style={{ paddingTop: '200px', textAlign: 'center', color: 'white', minHeight: '100vh', background: '#050505' }}>
                 <div className="spinner-small" style={{ margin: '0 auto 20px', width: '40px', height: '40px' }} />
-                <p style={{ letterSpacing: '2px', opacity: 0.6 }}>PREPARING THE GRID...</p>
+                <p style={{ letterSpacing: '2px', opacity: 0.5 }}>LOADING EVENT GRID...</p>
+            </div>
+        );
+    }
+
+    if (verificationStatus === 'VERIFIED') {
+        return (
+            <div style={{ paddingTop: '150px', minHeight: '100vh', background: '#050505', textAlign: 'center' }}>
+                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="glass-card" style={{ maxWidth: '600px', margin: '0 auto', padding: '50px' }}>
+                    <FiCheckCircle size={80} color="var(--mercedes-green)" />
+                    <h1 style={{ margin: '30px 0' }}>RACE CONFIRMED!</h1>
+                    <p style={{ opacity: 0.7, marginBottom: '40px' }}>Your registration is verified. Welcome to the grid!</p>
+                    {whatsappLink && (
+                        <a href={whatsappLink} target="_blank" rel="noreferrer" className="btn-primary" style={{ padding: '15px 30px' }}>JOIN WHATSAPP GROUP</a>
+                    )}
+                </motion.div>
             </div>
         );
     }
 
     return (
-        <div style={{ paddingTop: '120px', paddingBottom: '100px', minHeight: '100vh', background: 'var(--primary-black)' }}>
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ maxWidth: '900px', margin: '0 auto' }} >
-                <h1 style={{ textAlign: 'center', marginBottom: '40px', color: 'var(--mercedes-green)', fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase' }}>Join the Grid</h1>
+        <ErrorBoundary>
+            <div style={{ paddingTop: '120px', paddingBottom: '100px', minHeight: '100vh', background: '#050505', color: 'white' }}>
+                <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '40px' }}>
+                        <h1 style={{ textAlign: 'center', marginBottom: '40px', fontWeight: 900 }}>EVENT REGISTRATION</h1>
 
-                <form onSubmit={(e) => e.preventDefault()}>
-                    {/* EVENT SELECTION - RADIO STYLE */}
-                    <div style={{ marginBottom: '40px' }}>
-                        <label className="label-text">CHOOSE YOUR RACE <span style={{ color: 'var(--mercedes-green)' }}>(Select One)</span></label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '15px' }}>
-                            {events.filter(ev => ev && ev._id).map(ev => {
-                                const passed = new Date() > new Date(ev.closingDate);
-                                const selected = selectedEventIds.includes(ev._id);
-                                return (
-                                    <div key={ev._id} onClick={() => !passed && handleEventToggle(ev._id)} style={{
-                                        padding: '20px', borderRadius: '15px', border: `2px solid ${selected ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.05)'}`,
-                                        background: selected ? 'rgba(0, 161, 155, 0.1)' : 'rgba(255,255,255,0.02)', cursor: passed ? 'not-allowed' : 'pointer',
-                                        transition: '0.3s', opacity: passed ? 0.5 : 1, position: 'relative'
+                        {/* Event Selection */}
+                        <div style={{ marginBottom: '40px' }}>
+                            <label style={labelStyle}>Selected Category</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
+                                {events.map(ev => (
+                                    <div key={ev._id} style={{
+                                        padding: '20px',
+                                        borderRadius: '15px',
+                                        border: `2px solid var(--mercedes-green)`,
+                                        background: 'rgba(0, 161, 155, 0.05)'
                                     }}>
-                                        <div style={{ position: 'absolute', top: '15px', right: '15px', width: '18px', height: '18px', borderRadius: '50%', border: '2px solid var(--mercedes-green)', background: selected ? 'var(--mercedes-green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {selected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'black' }} />}
+                                        <h3 style={{ margin: 0 }}>{ev.name}</h3>
+                                        <p style={{ opacity: 0.6, fontSize: '0.9rem', margin: '10px 0' }}>{ev.description}</p>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>₹{ev.feeAmount}</span>
+                                            {isDeadlinePassed && <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>ENTRY CLOSED</span>}
                                         </div>
-                                        <h4 className="text-box" style={{ margin: 0, color: selected ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h4>
-                                        <p className="text-box" style={{ margin: '8px 0', fontSize: '0.9rem', opacity: 0.8, color: 'white', lineHeight: '1.4' }}>{ev.description}</p>
-                                        <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{'\u20B9'}{ev.feeAmount}</p>
-                                        {passed && <p style={{ color: '#ff4d4d', fontSize: '0.7rem', marginTop: '10px', fontWeight: 'bold' }}>CLOSED</p>}
                                     </div>
-                                );
-                            })}
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {selectedEventIds.length > 0 && currentEvent && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            {/* COLLEGE SEARCH */}
-                            <div style={{ gridColumn: '1 / -1', position: 'relative', marginBottom: '30px' }} ref={searchRef}>
-                                <label style={labelStyle}>College Name *</label>
-                                <input
-                                    required
-                                    type="text"
-                                    style={inputStyle}
-                                    placeholder="Type to search..."
-                                    value={searchTerm}
-                                    onFocus={() => setShowColleges(true)}
-                                    onKeyDown={handleKeyDown}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        setFormData({ ...formData, collegeName: e.target.value, collegeId: '' });
-                                        setShowColleges(true);
-                                    }}
-                                />
-                                {showColleges && searchTerm.length >= 2 && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        style={{
-                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                                            background: '#121212', border: '1px solid var(--mercedes-green)', borderRadius: '0 0 12px 12px',
-                                            maxHeight: '300px', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', marginTop: '5px'
+                        {currentEvent && !isDeadlinePassed && (
+                            <div className="animate-fade">
+                                {/* College Search */}
+                                <div style={{ marginBottom: '30px', position: 'relative' }} ref={searchRef}>
+                                    <label style={labelStyle}>College Name *</label>
+                                    <input
+                                        style={inputStyle}
+                                        placeholder="Search your college..."
+                                        value={searchTerm}
+                                        onFocus={() => setShowColleges(true)}
+                                        onKeyDown={handleKeyDown}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            setFormData(prev => ({ ...prev, collegeName: e.target.value, collegeId: '' }));
+                                            setShowColleges(true);
                                         }}
-                                    >
-                                        {suggestedColleges.length > 0 ? (
-                                            <>
-                                                {suggestedColleges.map((college, index) => (
-                                                    <div
-                                                        key={college._id}
-                                                        onClick={() => handleCollegeSelect(college)}
-                                                        className={cursor === index ? 'suggestion-active' : ''}
-                                                        style={{
-                                                            padding: '15px 20px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                                            background: cursor === index ? 'rgba(0, 161, 155, 0.2)' : 'transparent', transition: '0.2s'
-                                                        }}
-                                                        onMouseEnter={() => setCursor(index)}
-                                                    >
-                                                        <div className="text-box" style={{ fontWeight: 'bold', color: 'white' }}>{college.name}</div>
-                                                        <div className="text-box" style={{ fontSize: '0.75rem', opacity: 0.6 }}>{college.district} | {college.type}</div>
+                                    />
+                                    <AnimatePresence>
+                                        {showColleges && searchTerm.length >= 2 && (
+                                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={dropdownStyle}>
+                                                {suggestedColleges.map((c, i) => (
+                                                    <div key={c._id} onClick={() => handleCollegeSelect(c)} style={{
+                                                        padding: '15px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                        background: cursor === i ? 'rgba(0,161,155,0.2)' : 'transparent'
+                                                    }}>
+                                                        <b>{c.name}</b>
+                                                        <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{c.district} | {c.type}</div>
                                                     </div>
                                                 ))}
-                                                <div
-                                                    onClick={handleSelectOther}
-                                                    className={cursor === suggestedColleges.length ? 'suggestion-active' : ''}
-                                                    style={{
-                                                        padding: '15px 20px', cursor: 'pointer', background: cursor === suggestedColleges.length ? 'rgba(0, 161, 155, 0.4)' : 'rgba(255,255,255,0.03)',
-                                                        textAlign: 'center', borderTop: '1px solid var(--mercedes-green)'
-                                                    }}
-                                                    onMouseEnter={() => setCursor(suggestedColleges.length)}
-                                                >
-                                                    <span style={{ fontSize: '0.85rem', color: 'var(--mercedes-green)', fontWeight: 'bold' }}>
-                                                        Other: Use "{searchTerm}"
-                                                    </span>
+                                                <div onClick={handleSelectOther} style={{ padding: '15px', cursor: 'pointer', color: 'var(--mercedes-green)', background: 'rgba(255,255,255,0.02)' }}>
+                                                    Use "{searchTerm}" as custom option
                                                 </div>
-                                            </>
-                                        ) : (
-                                            <div style={{ padding: '30px 20px', textAlign: 'center' }}>
-                                                {!isSearching && (
-                                                    <>
-                                                        <p style={{ opacity: 0.5, marginBottom: '15px' }}>No match found in our grid.</p>
-                                                        <button
-                                                            type="button"
-                                                            className="btn-primary"
-                                                            style={{ padding: '10px 20px', fontSize: '0.8rem' }}
-                                                            onClick={handleSelectOther}
-                                                        >
-                                                            Use Custom Option
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
+                                            </motion.div>
                                         )}
-                                    </motion.div>
-                                )}
-                            </div>
-
-                            <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '40px 0' }} />
-
-                            <h3 style={{ marginBottom: '30px', color: 'var(--mercedes-green)', letterSpacing: '2px' }}>{maxTeamSize > 1 ? 'CREW DETAILS' : 'PARTICIPANT DETAILS'}</h3>
-                            {currentEvent && formData.members.length > 0 && formData.members.slice(0, currentEvent.teamSize).map((member, index) => (
-                                <div key={index} style={{ marginBottom: '30px', padding: '25px', background: 'rgba(255,255,255,0.02)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <h4 style={{ marginBottom: '20px', fontSize: '0.9rem', opacity: 0.8, textTransform: 'uppercase' }}>
-                                        {maxTeamSize > 1 ? `Member ${index + 1}` : 'Participant Details'} {index === 0 && maxTeamSize > 1 ? <span style={{ color: 'var(--mercedes-green)' }}>— Lead Driver</span> : ''}
-                                    </h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                                        <input required={index === 0} placeholder="Full Name" style={inputStyle} value={member.name} onChange={(e) => handleMemberChange(index, 'name', e.target.value)} />
-                                        <input required={index === 0} placeholder="Roll Number" style={inputStyle} value={member.rollNumber} onChange={(e) => handleMemberChange(index, 'rollNumber', e.target.value)} />
-                                        <input required={index === 0} placeholder="Phone Number" style={inputStyle} value={member.phone} onChange={(e) => handleMemberChange(index, 'phone', e.target.value)} />
-                                        <input required={index === 0} type="email" placeholder="Email Address" style={inputStyle} value={member.email} onChange={(e) => handleMemberChange(index, 'email', e.target.value)} />
-                                        <input required={index === 0} placeholder="Department" style={{ ...inputStyle, gridColumn: '1 / -1' }} value={member.department} onChange={(e) => handleMemberChange(index, 'department', e.target.value)} />
-                                    </div>
+                                    </AnimatePresence>
                                 </div>
-                            ))}
 
-                            {/* SUB-EVENTS CHECKBOXES - MOVED BELOW CREW DETAILS */}
-                            <AnimatePresence>
-                                {currentEvent.subEvents && currentEvent.subEvents.length > 0 && (
-                                    <motion.div
-                                        key={`sub-${currentEvent._id}`}
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        style={{ marginBottom: '40px', padding: '25px', background: 'rgba(0, 161, 155, 0.05)', borderRadius: '20px', border: '1px solid var(--mercedes-green)' }}
-                                    >
-                                        <label className="label-text" style={{ fontSize: '1rem', color: 'white', borderLeft: '4px solid var(--mercedes-green)', paddingLeft: '15px', marginBottom: '20px' }}>
-                                            SELECT SUB-EVENTS FOR {currentEvent.name.toUpperCase()}
-                                            {currentEvent.maxSelectableEvents > 0 && <span style={{ color: 'var(--mercedes-green)', marginLeft: '10px' }}> (Maximum {currentEvent.maxSelectableEvents} Selections)</span>}
-                                        </label>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
-                                            {currentEvent.subEvents.map((sub, idx) => {
-                                                const currentSelections = selectedSubEvents.find(s => s.eventId === currentEvent._id)?.subEventTitles || [];
-                                                const isChecked = currentSelections.includes(sub.title);
-                                                const isMaxReached = currentEvent.maxSelectableEvents > 0 && currentSelections.length >= currentEvent.maxSelectableEvents && !isChecked;
+                                {/* Participants */}
+                                <div style={{ marginBottom: '40px' }}>
+                                    <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)', fontSize: '1rem' }}>PARTICIPANT DETAILS</h3>
+                                    {formData.members.map((m, i) => (
+                                        <div key={i} style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '15px', marginBottom: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <p style={{ margin: '0 0 15px', fontSize: '0.75rem', opacity: 0.5 }}>{i === 0 ? 'LEAD MEMBER (REQUIRED)' : `MEMBER ${i + 1}`}</p>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                                                <input style={inputStyle} placeholder="Name" value={m.name} onChange={e => handleMemberChange(i, 'name', e.target.value)} />
+                                                <input style={inputStyle} placeholder="Phone" value={m.phone} onChange={e => handleMemberChange(i, 'phone', e.target.value)} />
+                                                <input style={inputStyle} placeholder="Email" value={m.email} onChange={e => handleMemberChange(i, 'email', e.target.value)} />
+                                                <input style={inputStyle} placeholder="Roll Number" value={m.rollNumber} onChange={e => handleMemberChange(i, 'rollNumber', e.target.value)} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
 
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        onClick={() => !isMaxReached && handleSubEventToggle(currentEvent._id, sub.title, currentEvent.maxSelectableEvents)}
-                                                        style={{
-                                                            padding: '20px',
-                                                            borderRadius: '12px',
-                                                            background: isChecked ? 'rgba(0, 161, 155, 0.15)' : 'rgba(255,255,255,0.02)',
-                                                            border: `1px solid ${isChecked ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.1)'}`,
-                                                            transition: '0.2s',
-                                                            cursor: isMaxReached ? 'not-allowed' : 'pointer',
-                                                            opacity: isMaxReached ? 0.3 : 1,
-                                                            display: 'flex',
-                                                            alignItems: 'flex-start',
-                                                            gap: '15px'
-                                                        }}
-                                                    >
-                                                        <div style={{
-                                                            marginTop: '3px',
-                                                            minWidth: '22px',
-                                                            height: '22px',
-                                                            border: '2px solid var(--mercedes-green)',
-                                                            borderRadius: currentEvent.maxSelectableEvents === 1 ? '50%' : '4px', // Circle if max 1 (radio feel)
-                                                            background: isChecked ? 'var(--mercedes-green)' : 'transparent',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}>
-                                                            {isChecked && <span style={{ color: 'black', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
-                                                        </div>
-                                                        <div style={{ flex: 1 }}>
-                                                            <p className="text-box" style={{ margin: 0, fontSize: '1.1rem', color: isChecked ? 'var(--mercedes-green)' : 'white', fontWeight: isChecked ? '700' : '500' }}>{sub.title}</p>
-                                                            {sub.description && <p className="text-box" style={{ margin: '5px 0 0', fontSize: '0.85rem', opacity: 0.6, color: '#ccc' }}>{sub.description}</p>}
-                                                        </div>
+                                {/* Payment Gate */}
+                                <div style={{ background: 'white', color: 'black', padding: '30px', borderRadius: '20px', textAlign: 'center' }}>
+                                    <h2 style={{ fontWeight: 900 }}>SECURE PAYMENT</h2>
+                                    {paymentConfig?.paymentMode === 'BANK' ? (
+                                        <div style={{ textAlign: 'left', marginTop: '20px' }}>
+                                            <div style={{ background: '#f8f8f8', padding: '20px', borderRadius: '12px' }}>
+                                                <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>ACCOUNT HOLDER</p>
+                                                <p style={{ fontWeight: 'bold' }}>{paymentConfig.accountHolderName}</p>
+                                                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <div>
+                                                        <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>ACCOUNT NUMBER</p>
+                                                        <p style={{ fontWeight: 'bold' }}>{paymentConfig.accountNumber}</p>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            {/* PAYMENT SECTION */}
-                            <div style={{ background: '#FFFFFF', padding: '40px', borderRadius: '25px', color: '#000', textAlign: 'center', marginTop: '50px', border: '5px solid var(--mercedes-green)' }}>
-                                <div style={{ display: 'inline-block', padding: '10px 20px', background: 'var(--mercedes-green)', color: 'black', borderRadius: '50px', fontWeight: '900', fontSize: '0.8rem', letterSpacing: '2px', marginBottom: '20px' }}>
-                                    PAYMENT GATEWAY OPEN
-                                </div>
-                                <h2 style={{ marginBottom: '10px', fontWeight: 900 }}>FINISH LINE: PAYMENT</h2>
-
-                                {paymentConfig?.paymentMode === 'BANK' ? (
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ background: '#f8f8f8', padding: '30px', borderRadius: '20px', marginBottom: '30px', textAlign: 'left' }}>
-                                        <p style={{ opacity: 0.6, marginBottom: '20px', textAlign: 'center', fontWeight: 'bold' }}>TRANSFER ₹{currentEvent.feeAmount} via Bank Transfer</p>
-
-                                        <div style={{ border: '1px solid #ddd', borderRadius: '15px', overflow: 'hidden' }}>
-                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
-                                                <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>Account Name</label>
-                                                <p style={{ fontWeight: 'bold', margin: '5px 0' }}>{paymentConfig.accountHolderName}</p>
+                                                    <button type="button" onClick={() => handleCopy(paymentConfig.accountNumber, 'Account')} style={copyBtnStyle}><FiCopy /></button>
+                                                </div>
+                                                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <div>
+                                                        <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>IFSC CODE</p>
+                                                        <p style={{ fontWeight: 'bold' }}>{paymentConfig.ifscCode}</p>
+                                                    </div>
+                                                    <button type="button" onClick={() => handleCopy(paymentConfig.ifscCode, 'IFSC')} style={copyBtnStyle}><FiCopy /></button>
+                                                </div>
                                             </div>
-
-                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>Account Number</label>
-                                                    <p style={{ fontWeight: 'bold', margin: '5px 0', fontSize: '1.2rem', letterSpacing: '1px' }}>{paymentConfig.accountNumber}</p>
-                                                </div>
-                                                <button type="button" onClick={() => handleCopy(paymentConfig.accountNumber, 'Account Number')} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {activeCopy === 'Account Number' ? <FiCheck color="var(--mercedes-green)" /> : <FiCopy />} COPY
-                                                </button>
-                                            </div>
-
-                                            <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', textTransform: 'uppercase' }}>IFSC Code</label>
-                                                    <p style={{ fontWeight: 'bold', margin: '5px 0', fontSize: '1.1rem' }}>{paymentConfig.ifscCode}</p>
-                                                </div>
-                                                <button type="button" onClick={() => handleCopy(paymentConfig.ifscCode, 'IFSC Code')} style={{ background: 'black', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {activeCopy === 'IFSC Code' ? <FiCheck color="var(--mercedes-green)" /> : <FiCopy />} COPY
-                                                </button>
-                                            </div>
-
-                                            {paymentConfig.bankName && (
-                                                <div style={{ padding: '20px', background: '#f0f0f0' }}>
-                                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block' }}>BANK & BRANCH</label>
-                                                    <p style={{ margin: 0, opacity: 0.8 }}>{paymentConfig.bankName}</p>
-                                                </div>
-                                            )}
                                         </div>
-                                        <p style={{ marginTop: '20px', fontSize: '0.85rem', opacity: 0.7, textAlign: 'center' }}>Instruction: Transfer the exact amount and upload screenshot below.</p>
-                                    </motion.div>
-                                ) : (
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ background: '#f0f0f0', padding: '30px', borderRadius: '20px', marginBottom: '30px' }}>
-                                        <p style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: '0 0 20px' }}>Pay ₹{currentEvent.feeAmount}</p>
-
-                                        <div style={{ background: 'white', padding: '20px', borderRadius: '15px', display: 'inline-block', marginBottom: '20px', border: '2px dashed var(--mercedes-green)' }}>
-                                            {paymentConfig?.qrImageUrl ? (
-                                                <img src={paymentConfig.qrImageUrl} alt="Merchant QR" style={{ width: '220px', height: '220px', display: 'block' }} />
-                                            ) : (
-                                                <div style={{ width: '220px', height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    Scanning...
-                                                </div>
-                                            )}
+                                    ) : (
+                                        <div style={{ marginTop: '20px' }}>
+                                            <img src={paymentConfig?.qrImageUrl} alt="QR" style={{ width: '200px', borderRadius: '10px' }} />
+                                            <p style={{ marginTop: '10px', fontSize: '0.8rem', opacity: 0.6 }}>Scan QR to pay ₹{currentEvent.feeAmount}</p>
                                         </div>
+                                    )}
 
-                                        <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>Scan QR and complete payment via any UPI app.</p>
-
-                                        {/* Keep UPI Pay Now button only if user is on mobile for convenience, or strictly follow "No Dual Display" */}
-                                        {/* User said: "ONLY the selected payment method". So QR mode shows QR image. */}
-                                    </motion.div>
-                                )}
-
-                                <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
-                                    <label style={{ ...labelStyle, color: '#333' }}>UPLOAD PAYMENT SCREENSHOT *</label>
-                                    <input
-                                        disabled={verificationStatus === 'PENDING'}
-                                        type="file"
-                                        accept="image/*"
-                                        style={paymentInputStyle}
-                                        onChange={handleUploadScreenshot}
-                                    />
-
-                                    {loading && <div style={{ textAlign: 'center', marginTop: '20px' }}><div className="spinner-small" style={{ margin: '0 auto' }} /> scanning screenshot...</div>}
+                                    <div style={{ marginTop: '30px' }}>
+                                        <label style={{ ...labelStyle, color: '#666' }}>UPLOAD PAYMENT SCREENSHOT *</label>
+                                        <input type="file" accept="image/*" onChange={handleUploadScreenshot} style={{ ...inputStyle, background: '#f5f5f5', color: 'black', border: '1px solid #ddd' }} />
+                                    </div>
 
                                     {verificationStatus === 'PENDING' && (
-                                        <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(0, 161, 155, 0.1)', borderRadius: '15px', border: '1px solid var(--mercedes-green)' }}>
-                                            <p style={{ fontWeight: 'bold', color: 'var(--mercedes-green)', margin: '0 0 10px' }}>⌛ VERIFICATION IN PROGRESS</p>
-                                            {ocrData?.transactionId && <p style={{ fontSize: '0.85rem', margin: '5px 0' }}>Captured TX ID: <b>{ocrData.transactionId}</b></p>}
-                                            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Please stay on this page. Admin is verifying your payment. This usually takes 1-3 minutes.</p>
-                                        </div>
-                                    )}
-
-                                    {verificationStatus === 'REJECTED' && (
-                                        <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(255, 77, 77, 0.1)', borderRadius: '15px', border: '1px solid #ff4d4d' }}>
-                                            <p style={{ fontWeight: 'bold', color: '#ff4d4d', margin: 0 }}>❌ PAYMENT REJECTED</p>
-                                            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Details didn't match. Please re-upload a clear screenshot.</p>
+                                        <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,161,155,0.1)', color: 'var(--mercedes-green)', borderRadius: '10px', fontWeight: 'bold' }}>
+                                            ⌛ VERIFYING PAYMENT... PLEASE WAIT.
                                         </div>
                                     )}
                                 </div>
                             </div>
-
-                            <button
-                                disabled={true} // ALWAYS DISABLED - Admin approval completes the registration
-                                className="btn-primary"
-                                style={{ width: '100%', marginTop: '30px', padding: '25px', opacity: 0.3, cursor: 'not-allowed' }}
-                            >
-                                {verificationStatus === 'PENDING' ? 'VERIFYING...' : 'COMPLETE REGISTRATION'}
-                            </button>
-                        </motion.div>
-                    )}
-                </form>
-            </motion.div>
-
+                        )}
+                    </motion.div>
+                </div>
+            </div>
             <style>{`
-                .label-text { display: block; font-size: 0.8rem; font-weight: 900; letter-spacing: 2px; color: #999; margin-bottom: 10px; }
-                .spinner-small { width: 20px; height: 20px; border: 2px solid rgba(0, 161, 155, 0.3); border-top-color: var(--mercedes-green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+                .spinner-small { width: 30px; height: 30px; border: 3px solid rgba(0,161,155,0.1); border-top-color: var(--mercedes-green); border-radius: 50%; animation: spin 0.8s linear infinite; }
                 @keyframes spin { to { transform: rotate(360deg); } }
-                .suggestion-active { background: rgba(0, 161, 155, 0.2) !important; }
             `}</style>
-        </div>
+        </ErrorBoundary>
     );
 };
 
-const inputStyle = {
-    width: '100%',
-    padding: '18px 20px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '12px',
-    color: 'white',
-    fontSize: '1rem',
-    outline: 'none',
-    transition: '0.3s'
-};
-
-const paymentInputStyle = {
-    ...inputStyle,
-    background: '#FFFFFF',
-    color: '#000',
-    border: '2px solid #EEEEEE'
-};
-
-const labelStyle = { display: 'block', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 900, color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px' };
+const labelStyle = { display: 'block', marginBottom: '10px', fontSize: '0.8rem', fontWeight: 700, opacity: 0.6, letterSpacing: '1px' };
+const inputStyle = { width: '100%', padding: '15px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', outline: 'none' };
+const dropdownStyle = { position: 'absolute', top: '100%', left: 0, right: 0, background: '#111', border: '1px solid var(--mercedes-green)', borderRadius: '10px', zIndex: 100, maxHeight: '250px', overflowY: 'auto' };
+const copyBtnStyle = { background: 'black', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' };
 
 export default Registration;
