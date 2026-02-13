@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FiCopy, FiCheck, FiAlertTriangle, FiArrowLeft, FiImage, FiCreditCard, FiCheckCircle } from 'react-icons/fi';
-import { isMobileDevice, triggerUPIPayment } from '../utils/paymentUtils';
+import { isMobileDevice } from '../utils/paymentUtils';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const Registration = () => {
@@ -14,7 +14,8 @@ const Registration = () => {
     const eventIdFromUrl = new URLSearchParams(location.search).get('eventId');
 
     const [events, setEvents] = useState([]);
-    const [selectedEventIds, setSelectedEventIds] = useState(eventIdFromUrl ? [eventIdFromUrl] : []);
+    const [selectedEventId, setSelectedEventId] = useState(eventIdFromUrl || '');
+    const [isConfirmed, setIsConfirmed] = useState(false);
     const [formData, setFormData] = useState({
         teamName: '',
         members: [],
@@ -47,30 +48,22 @@ const Registration = () => {
     useEffect(() => {
         const fetchEvents = async () => {
             try {
-                if (eventIdFromUrl) {
-                    // Validate MongoDB ObjectId format
-                    if (!/^[0-9a-fA-F]{24}$/.test(eventIdFromUrl)) {
-                        setFetchError("Invalid Event link. Please check the URL carefully.");
-                        setPageLoading(false);
-                        return;
-                    }
+                const { data } = await axios.get(`${API_URL}/events`);
+                const activeEvents = Array.isArray(data) ? data : [];
+                setEvents(activeEvents);
 
-                    const { data } = await axios.get(`${API_URL}/events/${eventIdFromUrl}`);
-                    if (data && data._id) {
-                        setEvents([data]);
-                        setSelectedEventIds([data._id]);
-                        setFetchError(null);
+                if (eventIdFromUrl) {
+                    const exists = activeEvents.find(e => e._id === eventIdFromUrl);
+                    if (exists) {
+                        setSelectedEventId(eventIdFromUrl);
                     } else {
-                        setFetchError("Event not found. It might have been deleted or closed.");
+                        toast.warning("Selected event not found. Please choose from the list.");
                     }
-                } else {
-                    const { data } = await axios.get(`${API_URL}/events`);
-                    setEvents(Array.isArray(data) ? data : []);
-                    setFetchError(null);
                 }
+                setFetchError(null);
             } catch (err) {
                 console.error("Fetch Events Error:", err);
-                setFetchError(err.response?.data?.message || "Failed to load event details. Please check your internet connection.");
+                setFetchError("Failed to load events. Please check your connection.");
             } finally {
                 setPageLoading(false);
             }
@@ -167,7 +160,7 @@ const Registration = () => {
         setShowColleges(false);
     };
 
-    const currentEvent = events.find(e => e._id === selectedEventIds[0]);
+    const currentEvent = events.find(e => e._id === selectedEventId);
     const isDeadlinePassed = currentEvent && new Date() > new Date(currentEvent.closingDate);
     const maxTeamSize = currentEvent?.teamSize || 0;
 
@@ -180,8 +173,8 @@ const Registration = () => {
         }
     }, [maxTeamSize]);
 
-    const handleEventToggle = (eventId) => {
-        setSelectedEventIds([eventId]);
+    const handleEventSelect = (eventId) => {
+        setSelectedEventId(eventId);
     };
 
     const handleMemberChange = (index, field, value) => {
@@ -211,28 +204,32 @@ const Registration = () => {
         });
     };
 
-    const handleUploadScreenshot = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setScreenshot(e.target.files[0]);
+        }
+    };
+
+    const handleSubmitRegistration = async () => {
+        if (!screenshot) return toast.error("Please upload payment screenshot");
 
         // Basic Client Validations
-        if (selectedEventIds.length === 0) return toast.error("Select an event first");
+        if (!selectedEventId) return toast.error("Select an event first");
         if (!formData.collegeName) return toast.error("College name required");
         const m1 = formData.members[0];
         if (!m1?.name || !m1?.email || !m1?.phone) return toast.error("Lead member details mandatory!");
 
-        setScreenshot(file);
         setLoading(true);
-        toast.info("Uploading screenshot... Please wait.", { autoClose: 2000 });
+        toast.info("Submitting registration...", { autoClose: 2000 });
 
         const submitData = new FormData();
         submitData.append('participantName', m1.name);
-        submitData.append('eventId', selectedEventIds[0]);
-        submitData.append('paymentScreenshot', file);
+        submitData.append('eventId', selectedEventId);
+        submitData.append('paymentScreenshot', screenshot);
 
         const regData = {
             ...formData,
-            events: selectedEventIds,
+            events: [selectedEventId],
             members: formData.members.filter(m => m.name),
             selectedSubEvents
         };
@@ -247,11 +244,11 @@ const Registration = () => {
             if (data.transactionId) {
                 toast.success("Transaction ID detected automatically!");
             } else {
-                toast.success("Screenshot uploaded successfully. Processing details...");
+                toast.success("Registration submitted! Processing details...");
             }
         } catch (err) {
             console.error("Upload Error:", err);
-            toast.error(err.response?.data?.message || "Upload failed. Please try again.");
+            toast.error(err.response?.data?.message || "Submission failed. Please try again.");
             setVerificationStatus('IDLE');
         } finally {
             setLoading(false);
@@ -307,32 +304,79 @@ const Registration = () => {
             <div style={{ paddingTop: '120px', paddingBottom: '100px', minHeight: '100vh', background: '#050505', color: 'white' }}>
                 <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '40px' }}>
-                        <h1 style={{ textAlign: 'center', marginBottom: '40px', fontWeight: 900 }}>EVENT REGISTRATION</h1>
+                        <h1 style={{ textAlign: 'center', marginBottom: '40px', fontWeight: 900, letterSpacing: '2px' }}>EVENT REGISTRATION</h1>
 
-                        {/* Event Selection */}
-                        <div style={{ marginBottom: '40px' }}>
-                            <label style={labelStyle}>Selected Category</label>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
-                                {events.map(ev => (
-                                    <div key={ev._id} style={{
-                                        padding: '20px',
-                                        borderRadius: '15px',
-                                        border: `2px solid var(--mercedes-green)`,
-                                        background: 'rgba(0, 161, 155, 0.05)'
-                                    }}>
-                                        <h3 style={{ margin: 0 }}>{ev.name}</h3>
-                                        <p style={{ opacity: 0.6, fontSize: '0.9rem', margin: '10px 0' }}>{ev.description}</p>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>₹{ev.feeAmount}</span>
-                                            {isDeadlinePassed && <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>ENTRY CLOSED</span>}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {currentEvent && !isDeadlinePassed && (
+                        {!isConfirmed ? (
                             <div className="animate-fade">
+                                <h3 style={{ marginBottom: '25px', color: 'var(--mercedes-green)', fontSize: '1rem', textAlign: 'center' }}>STEP 1: SELECT YOUR EVENT</h3>
+                                <div style={{ display: 'grid', gap: '15px', marginBottom: '40px' }}>
+                                    {events.map(ev => {
+                                        const closed = new Date() > new Date(ev.closingDate);
+                                        return (
+                                            <div
+                                                key={ev._id}
+                                                onClick={() => !closed && handleEventSelect(ev._id)}
+                                                style={{
+                                                    padding: '20px',
+                                                    borderRadius: '15px',
+                                                    border: `2px solid ${selectedEventId === ev._id ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.05)'}`,
+                                                    background: selectedEventId === ev._id ? 'rgba(0, 161, 155, 0.1)' : 'rgba(255,255,255,0.02)',
+                                                    cursor: closed ? 'not-allowed' : 'pointer',
+                                                    transition: 'all 0.3s ease',
+                                                    position: 'relative',
+                                                    opacity: closed ? 0.5 : 1
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <h3 style={{ margin: 0, color: selectedEventId === ev._id ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h3>
+                                                        <p style={{ opacity: 0.6, fontSize: '0.8rem', marginTop: '5px' }}>{ev.type} | {ev.feeType}</p>
+                                                    </div>
+                                                    <div style={{
+                                                        width: '24px',
+                                                        height: '24px',
+                                                        borderRadius: '50%',
+                                                        border: `2px solid ${selectedEventId === ev._id ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.2)'}`,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        {selectedEventId === ev._id && <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--mercedes-green)' }} />}
+                                                    </div>
+                                                </div>
+                                                {closed && <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.7rem', color: '#ff4d4d', fontWeight: 'bold' }}>DEADLINE PASSED</span>}
+                                            </div>
+                                        );
+                                    })}
+                                    {events.length === 0 && <p style={{ textAlign: 'center', opacity: 0.5 }}>No active events found.</p>}
+                                </div>
+
+                                <button
+                                    disabled={!selectedEventId}
+                                    onClick={() => {
+                                        setIsConfirmed(true);
+                                        window.scrollTo(0, 0);
+                                    }}
+                                    className="btn-primary"
+                                    style={{ width: '100%', padding: '18px', fontWeight: 'bold', fontSize: '1rem', opacity: !selectedEventId ? 0.5 : 1 }}
+                                >
+                                    CONTINUE TO FORM <FiArrowLeft style={{ transform: 'rotate(180deg)', marginLeft: '10px' }} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="animate-fade">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '30px', padding: '15px', background: 'rgba(0,161,155,0.05)', borderRadius: '12px', border: '1px solid rgba(0,161,155,0.2)' }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontSize: '0.7rem', opacity: 0.5 }}>SELECTED EVENT</p>
+                                        <h4 style={{ margin: 0, color: 'var(--mercedes-green)' }}>{currentEvent?.name}</h4>
+                                    </div>
+                                    <button onClick={() => {
+                                        setIsConfirmed(false);
+                                        setScreenshot(null);
+                                        window.scrollTo(0, 0);
+                                    }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>Change</button>
+                                </div>
+
                                 {/* College Search */}
                                 <div style={{ marginBottom: '30px', position: 'relative' }} ref={searchRef}>
                                     <label style={labelStyle}>College Name *</label>
@@ -384,6 +428,57 @@ const Registration = () => {
                                     ))}
                                 </div>
 
+                                {/* Sub-events */}
+                                {currentEvent?.subEvents?.length > 0 && (
+                                    <div style={{ marginBottom: '40px', background: 'rgba(255,255,255,0.02)', padding: '25px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                            <h3 style={{ margin: 0, color: 'var(--mercedes-green)', fontSize: '1rem' }}>SUB-EVENTS</h3>
+                                            {currentEvent.maxSelectableEvents > 0 && (
+                                                <span style={{ fontSize: '0.7rem', padding: '4px 10px', background: 'rgba(0,161,155,0.1)', color: 'var(--mercedes-green)', borderRadius: '20px' }}>
+                                                    Pick up to {currentEvent.maxSelectableEvents}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'grid', gap: '12px' }}>
+                                            {currentEvent.subEvents.map((sub, idx) => {
+                                                const isSelected = selectedSubEvents.find(s => s.eventId === currentEvent._id)?.subEventTitles?.includes(sub.title);
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => handleSubEventToggle(currentEvent._id, sub.title, currentEvent.maxSelectableEvents)}
+                                                        style={{
+                                                            padding: '15px',
+                                                            borderRadius: '10px',
+                                                            background: isSelected ? 'rgba(0,161,155,0.1)' : 'rgba(255,255,255,0.02)',
+                                                            border: `1px solid ${isSelected ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.1)'}`,
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '15px'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: '20px',
+                                                            height: '20px',
+                                                            borderRadius: '4px',
+                                                            border: `2px solid ${isSelected ? 'var(--mercedes-green)' : 'rgba(255,255,255,0.2)'}`,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}>
+                                                            {isSelected && <FiCheck color="var(--mercedes-green)" />}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{sub.title}</div>
+                                                            {sub.description && <div style={{ fontSize: '0.75rem', opacity: 0.5 }}>{sub.description}</div>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Payment Gate */}
                                 <div style={{ background: 'white', color: 'black', padding: '30px', borderRadius: '20px', textAlign: 'center' }}>
                                     <h2 style={{ fontWeight: 900 }}>SECURE PAYMENT</h2>
@@ -408,7 +503,8 @@ const Registration = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#333', fontWeight: 'bold' }}>Scan QR to pay ₹{currentEvent?.feeAmount}</p>
+                                        <p style={{ marginTop: '15px', fontSize: '1rem', color: '#333', fontWeight: 900 }}>Scan QR to pay ₹{currentEvent?.feeAmount}</p>
+                                        <p style={{ fontSize: '0.7rem', color: '#666' }}>({currentEvent?.feeType})</p>
                                     </div>
 
                                     <div style={{ marginTop: '40px', textAlign: 'left', borderTop: '1px solid #eee', paddingTop: '30px' }}>
@@ -418,15 +514,31 @@ const Registration = () => {
                                             disabled={loading || verificationStatus === 'PENDING'}
                                             type="file"
                                             accept="image/*"
-                                            onChange={handleUploadScreenshot}
+                                            onChange={handleFileChange}
                                             style={{ ...inputStyle, background: '#f8f8f8', color: 'black', border: '1px solid #ddd', cursor: (loading || verificationStatus === 'PENDING') ? 'not-allowed' : 'pointer' }}
                                         />
                                     </div>
 
+                                    <button
+                                        disabled={loading || verificationStatus === 'PENDING' || !screenshot}
+                                        onClick={handleSubmitRegistration}
+                                        className="btn-primary"
+                                        style={{
+                                            marginTop: '30px',
+                                            width: '100%',
+                                            padding: '15px',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                            opacity: (loading || verificationStatus === 'PENDING' || !screenshot) ? 0.5 : 1
+                                        }}
+                                    >
+                                        {loading ? 'PROCESSING...' : 'COMPLETE REGISTRATION'}
+                                    </button>
+
                                     {loading && (
                                         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--mercedes-green)', fontWeight: 'bold' }}>
                                             <div className="spinner-small" />
-                                            <span>Processing screenshot...</span>
+                                            <span>Verifying payment...</span>
                                         </div>
                                     )}
 
