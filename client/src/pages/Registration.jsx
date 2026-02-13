@@ -254,7 +254,12 @@ const Registration = () => {
         }
     };
 
-    const handleUPIPayment = () => {
+    const handleUPIPayment = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
         if (!currentEvent) return;
 
         // Validation before redirect
@@ -524,7 +529,7 @@ const Registration = () => {
 
                                     <button
                                         type="button"
-                                        onClick={handleUPIPayment}
+                                        onClick={(e) => handleUPIPayment(e)}
                                         className="btn-primary"
                                         style={{
                                             display: 'flex',

@@ -46,20 +46,31 @@ export const generateUPILink = ({ upiId, name, amount }) => {
  * Triggers the UPI payment intent or handles desktop fallback.
  * @param {Object} options - Payment options
  * @param {Function} onDesktop - Callback for desktop detection
- * @returns {boolean} - Success of trigger
+ * @returns {void}
  */
 export const triggerUPIPayment = ({ upiId, name, amount, onDesktop }) => {
     if (!isMobileDevice()) {
         if (onDesktop) onDesktop();
-        return false;
+        return;
     }
 
     const upiLink = generateUPILink({ upiId, name, amount });
 
     if (upiLink) {
-        window.location.href = upiLink;
-        return true;
-    }
+        // Create an invisible anchor element to trigger the deep link
+        const link = document.createElement("a");
+        link.href = upiLink;
+        link.style.display = "none";
+        document.body.appendChild(link);
 
-    return false;
+        // Trigger the click
+        link.click();
+
+        // Cleanup with a small delay
+        setTimeout(() => {
+            if (document.body.contains(link)) {
+                document.body.removeChild(link);
+            }
+        }, 300);
+    }
 };
