@@ -14,14 +14,21 @@ const Registration = () => {
     const eventIdFromUrl = new URLSearchParams(location.search).get('eventId');
 
     const [events, setEvents] = useState([]);
-    const [selectedEventId, setSelectedEventId] = useState(eventIdFromUrl || '');
-    const [isConfirmed, setIsConfirmed] = useState(false);
-    const [formData, setFormData] = useState({
-        teamName: '',
-        members: [],
-        college: 'Engineering',
-        collegeName: '',
-        transactionId: ''
+    const [selectedEventId, setSelectedEventId] = useState(
+        localStorage.getItem('reg_selectedEventId') || eventIdFromUrl || ''
+    );
+    const [isConfirmed, setIsConfirmed] = useState(
+        localStorage.getItem('reg_isConfirmed') === 'true'
+    );
+    const [formData, setFormData] = useState(() => {
+        const saved = localStorage.getItem('reg_formData');
+        return saved ? JSON.parse(saved) : {
+            teamName: '',
+            members: [],
+            college: 'Engineering',
+            collegeName: '',
+            transactionId: ''
+        };
     });
     const [screenshot, setScreenshot] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -67,6 +74,12 @@ const Registration = () => {
         window.scrollTo(0, 0);
     }, [eventIdFromUrl]);
 
+
+    useEffect(() => {
+        localStorage.setItem('reg_selectedEventId', selectedEventId);
+        localStorage.setItem('reg_isConfirmed', isConfirmed);
+        localStorage.setItem('reg_formData', JSON.stringify(formData));
+    }, [selectedEventId, isConfirmed, formData]);
 
     useEffect(() => {
         let interval;
@@ -179,6 +192,11 @@ const Registration = () => {
             } else {
                 toast.success("Registration submitted! Processing details...");
             }
+
+            // Clear local storage on success
+            localStorage.removeItem('reg_selectedEventId');
+            localStorage.removeItem('reg_isConfirmed');
+            localStorage.removeItem('reg_formData');
         } catch (err) {
             console.error("Upload Error:", err);
             toast.error(err.response?.data?.message || "Submission failed. Please try again.");
@@ -464,10 +482,8 @@ const Registration = () => {
                                                     Detected ID: <b style={{ letterSpacing: '1px' }}>{ocrData.transactionId}</b>
                                                 </p>
                                             )}
-                                            <p style={{ fontSize: '0.8rem', opacity: 0.8, lineHeight: '1.4' }}>
-                                                {ocrData?.transactionId
-                                                    ? "Transaction ID detected automatically. Please wait for admin verification."
-                                                    : "Screenshot uploaded. Our AI is processing the details. Please wait for admin approval."}
+                                            <p style={{ fontSize: '0.8rem', opacity: 0.8, lineHeight: '1.4', marginTop: '10px' }}>
+                                                Please wait for verification approval. Once your payment is successfully verified, you will be added to the official WhatsApp group.
                                             </p>
                                         </div>
                                     )}

@@ -191,8 +191,23 @@ router.post('/verify/upload', upload.single('paymentScreenshot'), asyncHandler(a
 
 // @desc Get pending verifications
 router.get('/verify/pending', protect, asyncHandler(async (req, res) => {
-    const verifications = await PaymentVerification.find({ status: 'PENDING' }).populate('eventId', 'name');
-    res.json(verifications);
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const count = await PaymentVerification.countDocuments({ status: 'PENDING' });
+    const verifications = await PaymentVerification.find({ status: 'PENDING' })
+        .populate('eventId', 'name')
+        .limit(limit)
+        .skip(skip)
+        .sort({ createdAt: 1 });
+
+    res.json({
+        verifications,
+        page,
+        pages: Math.ceil(count / limit),
+        total: count
+    });
 }));
 
 // @desc Approve Payment Verification
@@ -418,7 +433,7 @@ router.get('/:id/export', protect, asyncHandler(async (req, res) => {
                 'Roll Number': member.rollNumber,
                 'Phone': member.phone,
                 'Email': member.email,
-                'Department': member.department,
+                'Department': member.department || reg.department || 'N/A',
                 'Registered At': new Date(reg.createdAt).toLocaleString('en-IN')
             });
         });
