@@ -18,7 +18,6 @@ const participantSchema = new mongoose.Schema({
         required: true
     },
     collegeName: { type: String, required: true },
-    collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
     transactionId: { type: String, required: true, unique: true },
     selectedSubEvents: [{
         eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event' },

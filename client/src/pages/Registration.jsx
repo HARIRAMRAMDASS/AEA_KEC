@@ -21,7 +21,6 @@ const Registration = () => {
         members: [],
         college: 'Engineering',
         collegeName: '',
-        collegeId: '',
         transactionId: ''
     });
     const [screenshot, setScreenshot] = useState(null);
@@ -37,13 +36,6 @@ const Registration = () => {
     const [whatsappLink, setWhatsappLink] = useState(null);
     const [activeCopy, setActiveCopy] = useState(null);
 
-    // Search Logic States
-    const [searchTerm, setSearchTerm] = useState('');
-    const [suggestedColleges, setSuggestedColleges] = useState([]);
-    const [showColleges, setShowColleges] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
-    const [cursor, setCursor] = useState(-1);
-    const searchRef = useRef(null);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -71,44 +63,10 @@ const Registration = () => {
 
         fetchEvents();
 
-        const handleClickOutside = (event) => {
-            if (searchRef.current && !searchRef.current.contains(event.target)) {
-                setShowColleges(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-
         // Ensure page starts at top
         window.scrollTo(0, 0);
-
-        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [eventIdFromUrl]);
 
-    useEffect(() => {
-        const fetchColleges = async () => {
-            if (searchTerm.length < 2) {
-                setSuggestedColleges([]);
-                return;
-            }
-            if (formData.collegeName === searchTerm && formData.collegeId) return;
-
-            setIsSearching(true);
-            try {
-                const { data } = await axios.get(`${API_URL}/colleges/search`, {
-                    params: { q: searchTerm }
-                });
-                setSuggestedColleges(data);
-                setCursor(-1);
-            } catch (err) {
-                console.error("Search failed", err);
-            } finally {
-                setIsSearching(false);
-            }
-        };
-
-        const timer = setTimeout(fetchColleges, 400);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
 
     useEffect(() => {
         let interval;
@@ -134,31 +92,6 @@ const Registration = () => {
         return () => clearInterval(interval);
     }, [verificationStatus, verificationId]);
 
-    const handleKeyDown = (e) => {
-        if (e.key === "ArrowDown" && cursor < suggestedColleges.length) {
-            setCursor(prev => prev + 1);
-        } else if (e.key === "ArrowUp" && cursor > 0) {
-            setCursor(prev => prev - 1);
-        } else if (e.key === "Enter" && cursor >= 0) {
-            e.preventDefault();
-            if (cursor === suggestedColleges.length) {
-                handleSelectOther();
-            } else {
-                handleCollegeSelect(suggestedColleges[cursor]);
-            }
-        }
-    };
-
-    const handleCollegeSelect = (college) => {
-        setFormData({ ...formData, collegeName: college.name, collegeId: college._id, college: college.type });
-        setSearchTerm(college.name);
-        setShowColleges(false);
-    };
-
-    const handleSelectOther = () => {
-        setFormData({ ...formData, collegeName: searchTerm, collegeId: null });
-        setShowColleges(false);
-    };
 
     const currentEvent = events.find(e => e._id === selectedEventId);
     const isDeadlinePassed = currentEvent && new Date() > new Date(currentEvent.closingDate);
@@ -378,38 +311,16 @@ const Registration = () => {
                                 </div>
 
                                 {/* College Search */}
-                                <div style={{ marginBottom: '30px', position: 'relative' }} ref={searchRef}>
+                                <div style={{ marginBottom: '30px' }}>
                                     <label style={labelStyle}>College Name *</label>
                                     <input
                                         style={inputStyle}
-                                        placeholder="Search your college..."
-                                        value={searchTerm}
-                                        onFocus={() => setShowColleges(true)}
-                                        onKeyDown={handleKeyDown}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setFormData(prev => ({ ...prev, collegeName: e.target.value, collegeId: '' }));
-                                            setShowColleges(true);
-                                        }}
+                                        placeholder="Enter your college name..."
+                                        value={formData.collegeName}
+                                        onChange={(e) => setFormData({ ...formData, collegeName: e.target.value })}
+                                        required
                                     />
-                                    <AnimatePresence>
-                                        {showColleges && searchTerm.length >= 2 && (
-                                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={dropdownStyle}>
-                                                {suggestedColleges.map((c, i) => (
-                                                    <div key={c._id} onClick={() => handleCollegeSelect(c)} style={{
-                                                        padding: '15px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                                        background: cursor === i ? 'rgba(0,161,155,0.2)' : 'transparent'
-                                                    }}>
-                                                        <b>{c.name}</b>
-                                                        <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{c.district} | {c.type}</div>
-                                                    </div>
-                                                ))}
-                                                <div onClick={handleSelectOther} style={{ padding: '15px', cursor: 'pointer', color: 'var(--mercedes-green)', background: 'rgba(255,255,255,0.02)' }}>
-                                                    Use "{searchTerm}" as custom option
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                    <p style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '5px' }}>Please type full college name</p>
                                 </div>
 
                                 {/* Participants */}

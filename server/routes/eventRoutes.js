@@ -301,7 +301,7 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         hasBuffer: !!req.file.buffer
     } : 'NO FILE RECEIVED - THIS IS THE PROBLEM');
 
-    let { teamName, members, college, collegeName, transactionId, eventIds, collegeId, selectedSubEvents } = req.body;
+    let { teamName, members, college, collegeName, transactionId, eventIds, selectedSubEvents } = req.body;
 
     // Parse items if they come as strings
     if (typeof members === 'string') members = JSON.parse(members);
@@ -364,7 +364,6 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
         members,
         college,
         collegeName,
-        collegeId: collegeId || null,
         transactionId,
         paymentScreenshot: {
             url: uploaded.secure_url,
