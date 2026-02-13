@@ -29,6 +29,8 @@ const participantSchema = new mongoose.Schema({
         publicId: { type: String, required: true }
     },
     isVerified: { type: Boolean, default: false },
+    status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+    whatsappLink: { type: String },
     verificationCode: { type: String, required: true, unique: true }
 }, { timestamps: true });
 

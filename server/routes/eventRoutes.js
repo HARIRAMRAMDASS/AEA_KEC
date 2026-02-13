@@ -193,6 +193,8 @@ router.post('/verify/approve/:id', protect, asyncHandler(async (req, res) => {
         events: [eventId],
         verificationCode,
         isVerified: true,
+        status: 'verified',
+        whatsappLink: event.whatsappLink,
         transactionId: transactionId || verification.transactionId || `MANUAL_${Date.now()}`,
         paymentScreenshot: {
             url: verification.screenshotUrl,
@@ -245,12 +247,18 @@ router.post('/verify/reject/:id', protect, asyncHandler(async (req, res) => {
 
 // @desc Get verification status
 router.get('/verify/status/:id', asyncHandler(async (req, res) => {
-    const verification = await PaymentVerification.findById(req.params.id);
+    const verification = await PaymentVerification.findById(req.params.id).populate('eventId', 'whatsappLink name');
     if (!verification) {
         res.status(404);
         throw new Error('Verification record not found');
     }
-    res.json({ status: verification.status, verificationCode: verification.registrationData?.verificationCode });
+
+    res.json({
+        status: verification.status,
+        verificationCode: verification.registrationData?.verificationCode,
+        whatsappLink: verification.status === 'VERIFIED' ? verification.eventId?.whatsappLink : null,
+        eventName: verification.eventId?.name
+    });
 }));
 
 // @desc Register for an event(s)

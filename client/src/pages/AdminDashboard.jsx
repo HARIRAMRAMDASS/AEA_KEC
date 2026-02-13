@@ -12,6 +12,7 @@ const AdminDashboard = () => {
     const [members, setMembers] = useState([]);
     const [payments, setPayments] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     const API_URL = '/api';
@@ -39,8 +40,10 @@ const AdminDashboard = () => {
             setVideos(viRes.data);
             setMembers(memRes.data);
             setPayments(payRes.data);
+            setError(null);
         } catch (err) {
             console.error('Fetch failed', err);
+            setError('Unable to load dashboard data. Please check your connection.');
         }
     };
 
@@ -69,6 +72,14 @@ const AdminDashboard = () => {
     };
 
     const renderContent = () => {
+        if (error) return (
+            <div className="glass-card" style={{ textAlign: 'center', padding: '100px 20px' }}>
+                <FiX size={40} style={{ color: '#ff4d4d', marginBottom: '20px' }} />
+                <h3>{error}</h3>
+                <button onClick={fetchData} className="btn-primary" style={{ marginTop: '20px' }}>REFRESH PADDOCK</button>
+            </div>
+        );
+
         switch (activeTab) {
             case 'events': return <EventsPanel events={events} onRefresh={fetchData} onDelete={(id) => deleteItem('events', id)} onExport={exportExcel} />;
             case 'bearers': return <MediaPanel title="Office Bearers" type="bearers" data={bearers} onRefresh={fetchData} onDelete={(id) => deleteItem('bearers', id)} />;
@@ -199,10 +210,17 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const handleUpdateUpi = async (e) => {
         e.preventDefault();
         if (!newUpiId) return toast.error('Please enter a UPI ID');
+
+        // Clean and Validate UPI ID
+        const cleanUpiId = newUpiId.trim().replace(/\s/g, '');
+        if (!cleanUpiId.includes('@')) {
+            return toast.error('Invalid UPI ID format (must contain @)');
+        }
+
         setLoading(true);
 
         try {
-            await axios.put(`${API_URL}/events/${editingUpiEvent._id}/upi`, { upiId: newUpiId }, { withCredentials: true });
+            await axios.put(`${API_URL}/events/${editingUpiEvent._id}/upi`, { upiId: cleanUpiId }, { withCredentials: true });
             toast.success('UPI ID updated successfully');
             setEditingUpiEvent(null);
             setNewUpiId('');
@@ -216,8 +234,15 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Clean and Validate UPI ID
+        const cleanUpiId = formData.upiId.trim().replace(/\s/g, '');
+        if (cleanUpiId && !cleanUpiId.includes('@')) {
+            return toast.error('Invalid UPI ID format (must contain @)');
+        }
+
         setLoading(true);
-        const data = { ...formData };
+        const data = { ...formData, upiId: cleanUpiId };
 
         try {
             await axios.post(`${API_URL}/events`, data, {
@@ -653,6 +678,124 @@ const AdminsPanel = ({ onRefresh }) => {
                         </p>
                     )}
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const MembersPanel = ({ data, onRefresh, onDelete }) => {
+    const [file, setFile] = useState(null);
+    const [formData, setFormData] = useState({
+        name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const API_URL = '/api';
+
+    const handleUpload = async (e) => {
+        e.preventDefault();
+        if (!file) return toast.error('Profile image is mandatory');
+        if (!formData.name || !formData.position) return toast.error('Name and Position are mandatory');
+
+        setLoading(true);
+        const form = new FormData();
+        form.append('image', file);
+        Object.keys(formData).forEach(key => form.append(key, formData[key]));
+
+        try {
+            await axios.post(`${API_URL}/members`, form, {
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            toast.success('Member added successfully');
+            setFile(null);
+            setFormData({ name: '', position: '', mobile: '', email: '', instagram: '', linkedin: '', github: '' });
+            onRefresh();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add member');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!data) return (
+        <div style={{ padding: '50px', textAlign: 'center' }}>
+            <div className="shimmer" style={{ width: '100%', height: '200px', borderRadius: '15px' }} />
+            <p style={{ marginTop: '20px', opacity: 0.5 }}>Syncing AEA Member Data...</p>
+        </div>
+    );
+
+    return (
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '1.8rem', margin: 0 }}>AEA Members Registry</h1>
+            </div>
+
+            <div className="glass-card" style={{ marginBottom: '40px', border: '1px solid rgba(0, 161, 155, 0.2)' }}>
+                <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Add Professional Member</h3>
+                <form onSubmit={handleUpload} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={labelStyle}>Profile Photo *</label>
+                        <input type="file" onChange={e => setFile(e.target.files[0])} accept="image/*" style={{ ...inputStyle, padding: '10px' }} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Full Name *</label>
+                        <input required placeholder="eg: Dr. John Doe" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Position/Responsibility *</label>
+                        <input required placeholder="eg: Faculty Coordinator" style={inputStyle} value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Mobile Number</label>
+                        <input placeholder="eg: +91 98765 43210" style={inputStyle} value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>E-mail ID</label>
+                        <input type="email" placeholder="eg: member@kec.ac.in" style={inputStyle} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Instagram URL</label>
+                        <input placeholder="https://instagram.com/..." style={inputStyle} value={formData.instagram} onChange={e => setFormData({ ...formData, instagram: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>LinkedIn URL</label>
+                        <input placeholder="https://linkedin.com/in/..." style={inputStyle} value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>GitHub URL</label>
+                        <input placeholder="https://github.com/..." style={inputStyle} value={formData.github} onChange={e => setFormData({ ...formData, github: e.target.value })} />
+                    </div>
+                    <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px', fontWeight: 'bold' }}>
+                        {loading ? 'DEPLOYING DATA...' : 'AUTHORIZE & ADD MEMBER'}
+                    </button>
+                </form>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }} className="admin-grid">
+                {data.map(mem => (
+                    <div key={mem._id} className="glass-card" style={{ display: 'flex', gap: '20px', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--mercedes-green)', flexShrink: 0 }}>
+                            <img src={mem.image?.url || 'https://via.placeholder.com/150'} alt={mem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 className="text-box" style={{ margin: 0, color: 'white' }}>{mem.name}</h4>
+                            <p className="text-box" style={{ margin: '4px 0', fontSize: '0.8rem', color: 'var(--mercedes-green)', fontWeight: 'bold' }}>{mem.position}</p>
+                            <p className="text-box" style={{ margin: 0, fontSize: '0.75rem', opacity: 0.5 }}>{mem.email || 'No Email'}</p>
+                        </div>
+                        <button
+                            onClick={() => onDelete(mem._id)}
+                            style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}
+                        >
+                            <FiTrash2 />
+                        </button>
+                    </div>
+                ))}
+                {data.length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '50px', opacity: 0.4, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '15px' }}>
+                        <FiUsers size={40} style={{ marginBottom: '15px' }} />
+                        <p>No AEA Members found in the registry.</p>
+                    </div>
+                )}
             </div>
         </div>
     );

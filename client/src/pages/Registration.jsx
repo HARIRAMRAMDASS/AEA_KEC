@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { isMobileDevice, triggerUPIPayment } from '../utils/paymentUtils';
 
 const Registration = () => {
     const API_URL = '/api';
@@ -29,6 +30,9 @@ const Registration = () => {
     const [verificationId, setVerificationId] = useState(null);
     const [verificationStatus, setVerificationStatus] = useState('IDLE'); // IDLE, PENDING, VERIFIED, REJECTED
     const [ocrData, setOcrData] = useState(null);
+    const [whatsappLink, setWhatsappLink] = useState(null);
+    const [paymentLoading, setPaymentLoading] = useState(false);
+    const [showDesktopWarning, setShowDesktopWarning] = useState(false);
 
     // Search Logic States
     const [searchTerm, setSearchTerm] = useState('');
@@ -110,6 +114,7 @@ const Registration = () => {
                     const { data } = await axios.get(`${API_URL}/events/verify/status/${verificationId}`);
                     if (data.status === 'VERIFIED') {
                         setVerificationStatus('VERIFIED');
+                        setWhatsappLink(data.whatsappLink);
                         clearInterval(interval);
                         toast.success("Payment Verified! Registration Complete.");
                     } else if (data.status === 'REJECTED') {
@@ -249,6 +254,30 @@ const Registration = () => {
         }
     };
 
+    const handleUPIPayment = () => {
+        if (!currentEvent) return;
+
+        // Validation before redirect
+        if (!currentEvent.upiId || !currentEvent.upiId.includes('@')) {
+            return toast.error("Invalid UPI ID configured for this event. Please contact admin.");
+        }
+
+        setPaymentLoading(true);
+
+        const success = triggerUPIPayment({
+            upiId: currentEvent.upiId,
+            name: currentEvent.name,
+            amount: currentEvent.feeAmount,
+            onDesktop: () => {
+                setShowDesktopWarning(true);
+                toast.info("Please use a mobile device for direct UPI payment.");
+            }
+        });
+
+        // Small delay to show loader even on quick redirects
+        setTimeout(() => setPaymentLoading(false), 2000);
+    };
+
     if (verificationStatus === 'VERIFIED') {
         return (
             <div style={{ paddingTop: '150px', minHeight: '100vh', background: 'var(--primary-black)', textAlign: 'center', padding: '20px' }}>
@@ -256,7 +285,24 @@ const Registration = () => {
                     <div style={{ fontSize: '5rem', color: 'var(--mercedes-green)', marginBottom: '30px' }}>🏁</div>
                     <h1 style={{ color: 'white', fontWeight: 900, marginBottom: '20px' }}>REGISTRATION CONFIRMED</h1>
                     <p style={{ opacity: 0.7, marginBottom: '40px', lineHeight: '1.6' }}>Your payment has been verified. A confirmation email with your Ticket ID has been sent to your crew lead.</p>
-                    <button onClick={() => window.location.href = '/'} className="btn-primary" style={{ padding: '15px 40px' }}>EXIT TO PADDOCK</button>
+
+                    {whatsappLink && (
+                        <div style={{ marginBottom: '40px', padding: '25px', background: 'rgba(0, 161, 155, 0.1)', borderRadius: '20px', border: '1px solid var(--mercedes-green)' }}>
+                            <p style={{ fontWeight: 'bold', color: 'var(--mercedes-green)', marginBottom: '15px' }}>✅ VERIFICATION COMPLETED</p>
+                            <p style={{ fontSize: '0.9rem', marginBottom: '20px', opacity: 0.8 }}>Join the official event WhatsApp group for latest updates and coordination.</p>
+                            <a
+                                href={whatsappLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', background: 'var(--mercedes-green)', color: 'black', textDecoration: 'none', fontWeight: 'bold' }}
+                            >
+                                JOIN WHATSAPP GROUP
+                            </a>
+                        </div>
+                    )}
+
+                    <button onClick={() => window.location.href = '/'} className="btn-primary" style={{ padding: '15px 40px', background: 'transparent', border: '1px solid white', color: 'white' }}>EXIT TO PADDOCK</button>
                 </motion.div>
             </div>
         );
@@ -476,13 +522,56 @@ const Registration = () => {
                                     <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 10px' }}>Pay ₹{currentEvent.feeAmount}</p>
                                     <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>to UPI ID: <span style={{ fontWeight: 'bold', color: 'var(--mercedes-green)' }}>{currentEvent.upiId}</span></p>
 
-                                    <a
-                                        href={`upi://pay?pa=${currentEvent.upiId}&pn=${encodeURIComponent(currentEvent.name)}&am=${currentEvent.feeAmount}`}
+                                    <button
+                                        type="button"
+                                        onClick={handleUPIPayment}
                                         className="btn-primary"
-                                        style={{ display: 'inline-block', marginTop: '20px', textDecoration: 'none', padding: '15px 30px', background: '#000', color: 'white' }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '10px',
+                                            marginTop: '20px',
+                                            width: '100%',
+                                            padding: '18px 30px',
+                                            background: '#000',
+                                            color: 'white',
+                                            position: 'relative',
+                                            overflow: 'hidden'
+                                        }}
+                                        disabled={paymentLoading}
                                     >
-                                        PAY NOW
-                                    </a>
+                                        {paymentLoading ? (
+                                            <>
+                                                <div className="spinner-small" style={{ borderTopColor: 'white' }} />
+                                                <span>REDIRECTING TO UPI...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo.png" alt="UPI" style={{ height: '20px', filter: 'brightness(0) invert(1)' }} />
+                                                <span>PAY ₹{currentEvent.feeAmount} NOW</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {showDesktopWarning && !isMobileDevice() && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            style={{
+                                                marginTop: '20px',
+                                                padding: '15px',
+                                                background: 'rgba(255, 165, 0, 0.1)',
+                                                border: '1px solid orange',
+                                                borderRadius: '12px',
+                                                color: '#856404',
+                                                fontSize: '0.9rem',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ⚠️ Please open this page on a mobile device to complete payment directly via UPI apps.
+                                        </motion.div>
+                                    )}
                                 </div>
 
                                 <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
