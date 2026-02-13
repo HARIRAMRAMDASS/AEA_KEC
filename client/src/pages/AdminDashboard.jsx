@@ -201,31 +201,34 @@ const SidebarLink = ({ active, icon, label, onClick }) => (
 const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
-        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: [], upiId: ''
+        name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1, closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both', subEvents: []
     });
-    const [editingUpiEvent, setEditingUpiEvent] = useState(null);
-    const [newUpiId, setNewUpiId] = useState('');
+    const [qrFile, setQrFile] = useState(null);
+    const [qrPreview, setQrPreview] = useState(null);
+    const [editingQrEvent, setEditingQrEvent] = useState(null);
+    const [newQrFile, setNewQrFile] = useState(null);
+    const [newQrPreview, setNewQrPreview] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const API_URL = '/api';
 
-    const handleUpdateUpi = async (e) => {
+    const handleUpdateQr = async (e) => {
         e.preventDefault();
-        if (!newUpiId) return toast.error('Please enter a UPI ID');
-
-        // Clean and Validate UPI ID
-        const cleanUpiId = newUpiId.trim().replace(/\s/g, '');
-        if (!cleanUpiId.includes('@')) {
-            return toast.error('Invalid UPI ID format (must contain @)');
-        }
+        if (!newQrFile) return toast.error('Please select a new QR code image');
 
         setLoading(true);
+        const form = new FormData();
+        form.append('qrCode', newQrFile);
 
         try {
-            await axios.put(`${API_URL}/events/${editingUpiEvent._id}/upi`, { upiId: cleanUpiId }, { withCredentials: true });
-            toast.success('UPI ID updated successfully');
-            setEditingUpiEvent(null);
-            setNewUpiId('');
+            await axios.put(`${API_URL}/events/${editingQrEvent._id}/qr`, form, {
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            toast.success('QR Code updated successfully');
+            setEditingQrEvent(null);
+            setNewQrFile(null);
+            setNewQrPreview(null);
             onRefresh();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Update failed');
@@ -236,26 +239,32 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // Clean and Validate UPI ID
-        const cleanUpiId = formData.upiId.trim().replace(/\s/g, '');
-        if (cleanUpiId && !cleanUpiId.includes('@')) {
-            return toast.error('Invalid UPI ID format (must contain @)');
-        }
+        if (!qrFile) return toast.error('Event QR Code is mandatory');
 
         setLoading(true);
-        const data = { ...formData, upiId: cleanUpiId };
+        const submitData = new FormData();
+        Object.keys(formData).forEach(key => {
+            if (key === 'subEvents' || key === 'details') {
+                submitData.append(key, JSON.stringify(formData[key]));
+            } else {
+                submitData.append(key, formData[key]);
+            }
+        });
+        submitData.append('qrCode', qrFile);
 
         try {
-            await axios.post(`${API_URL}/events`, data, {
-                withCredentials: true
+            await axios.post(`${API_URL}/events`, submitData, {
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success('Event Created');
+            toast.success('Event Created with QR Payment');
             setShowForm(false);
+            setQrFile(null);
+            setQrPreview(null);
             setFormData({
                 name: '', type: 'Tech', date: '', teamSize: 1, feeType: 'Per Head', feeAmount: 1,
                 closingDate: '', whatsappLink: '', description: '', maxSelectableEvents: 0, selectionMode: 'Both',
-                details: [], subEvents: [], upiId: ''
+                details: [], subEvents: []
             });
             onRefresh();
         } catch (err) {
@@ -274,23 +283,43 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                 </div>
             </div>
 
-            {/* Edit UPI Modal */}
-            {editingUpiEvent && (
+            {/* Edit QR Modal */}
+            {editingQrEvent && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div className="glass-card" style={{ width: '100%', maxWidth: '400px', position: 'relative' }}>
-                        <button onClick={() => { setEditingUpiEvent(null); setNewUpiId(''); }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}><FiX /></button>
-                        <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Update UPI ID</h3>
+                        <button onClick={() => { setEditingQrEvent(null); setNewQrFile(null); setNewQrPreview(null); }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}><FiX /></button>
+                        <h3 style={{ marginBottom: '20px', color: 'var(--mercedes-green)' }}>Update Event QR Code</h3>
 
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <p style={{ opacity: 0.7, marginBottom: '10px' }}>Current UPI ID: <span style={{ color: 'white' }}>{editingUpiEvent.upiId}</span></p>
+                            <p style={{ opacity: 0.7, marginBottom: '10px' }}>Current QR Code:</p>
+                            {editingQrEvent.qrCode?.url ? (
+                                <img src={editingQrEvent.qrCode.url} alt="Current QR" style={{ width: '150px', height: '150px', objectFit: 'contain', background: 'white', padding: '10px', borderRadius: '10px' }} />
+                            ) : (
+                                <p style={{ color: '#ff4d4d' }}>No QR configured</p>
+                            )}
                         </div>
 
-                        <form onSubmit={handleUpdateUpi}>
+                        <form onSubmit={handleUpdateQr}>
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={labelStyle}>New UPI ID</label>
-                                <input required placeholder="eg: aea@upi" style={inputStyle} value={newUpiId} onChange={e => setNewUpiId(e.target.value)} />
+                                <label style={labelStyle}>Upload New QR Code</label>
+                                <input
+                                    required
+                                    type="file"
+                                    accept="image/*"
+                                    style={inputStyle}
+                                    onChange={e => {
+                                        setNewQrFile(e.target.files[0]);
+                                        setNewQrPreview(URL.createObjectURL(e.target.files[0]));
+                                    }}
+                                />
                             </div>
-                            <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '12px' }}>{loading ? 'Updating...' : 'Save Changes'}</button>
+                            {newQrPreview && (
+                                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                    <p style={{ fontSize: '0.7rem', opacity: 0.5 }}>NEW PREVIEW</p>
+                                    <img src={newQrPreview} alt="New Preview" style={{ width: '120px', height: '120px', objectFit: 'contain', background: 'white', padding: '5px', borderRadius: '8px' }} />
+                                </div>
+                            )}
+                            <button disabled={loading} className="btn-primary" style={{ width: '100%', padding: '12px' }}>{loading ? 'Uploading...' : 'Deploy New QR'}</button>
                         </form>
                     </div>
                 </div>
@@ -459,10 +488,25 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             {(formData.details || []).length === 0 && <p style={{ fontSize: '0.8rem', opacity: 0.4, textAlign: 'center', margin: 0 }}>No custom fields added.</p>}
                         </div>
 
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={labelStyle}>UPI ID for Payment *</label>
-                            <input required placeholder="eg: kongu_aea@oksbi" style={inputStyle} value={formData.upiId} onChange={e => setFormData({ ...formData, upiId: e.target.value })} />
-                            <small style={{ opacity: 0.5 }}>This ID will be used for participant UPI deep links (GPay/PhonePe).</small>
+                        <div style={{ gridColumn: '1 / -1', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <label style={labelStyle}>Event Payment QR Code *</label>
+                            <input
+                                required
+                                type="file"
+                                accept="image/*"
+                                style={inputStyle}
+                                onChange={e => {
+                                    setQrFile(e.target.files[0]);
+                                    setQrPreview(URL.createObjectURL(e.target.files[0]));
+                                }}
+                            />
+                            {qrPreview && (
+                                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                                    <p style={{ fontSize: '0.7rem', opacity: 0.5, marginBottom: '10px' }}>QR PREVIEW</p>
+                                    <img src={qrPreview} alt="Preview" style={{ width: '180px', height: '180px', objectFit: 'contain', background: 'white', padding: '15px', borderRadius: '15px' }} />
+                                </div>
+                            )}
+                            <small style={{ display: 'block', opacity: 0.5, marginTop: '10px' }}>Scan-to-pay QR code for this specific event.</small>
                         </div>
 
                         <button disabled={loading} className="btn-primary" style={{ gridColumn: '1 / -1', padding: '15px' }}>{loading ? 'Processing...' : 'Launch Event'}</button>
@@ -478,7 +522,7 @@ const EventsPanel = ({ events, onRefresh, onDelete, onExport }) => {
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button onClick={() => onExport(ev._id)} style={actionBtnStyle('var(--mercedes-green)')}><FiDownload /> Excel</button>
-                                <button onClick={() => { setEditingUpiEvent(ev); setNewUpiId(ev.upiId || ''); }} style={actionBtnStyle('#FFA500')}><FiCheckCircle /> Edit UPI</button>
+                                <button onClick={() => { setEditingQrEvent(ev); }} style={actionBtnStyle('#FFA500')}><FiImage /> Edit QR</button>
                                 <button onClick={() => onDelete(ev._id)} style={actionBtnStyle('#ff4d4d')}><FiTrash2 /> Delete</button>
                             </div>
                         </div>

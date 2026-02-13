@@ -34,9 +34,6 @@ const Registration = () => {
     const [verificationStatus, setVerificationStatus] = useState('IDLE');
     const [ocrData, setOcrData] = useState(null);
     const [whatsappLink, setWhatsappLink] = useState(null);
-    const [paymentLoading, setPaymentLoading] = useState(false);
-    const [showDesktopWarning, setShowDesktopWarning] = useState(false);
-    const [paymentConfig, setPaymentConfig] = useState(null);
     const [activeCopy, setActiveCopy] = useState(null);
 
     // Search Logic States
@@ -79,17 +76,7 @@ const Registration = () => {
             }
         };
 
-        const fetchPaymentConfig = async () => {
-            try {
-                const { data } = await axios.get(`${API_URL}/payment-config`);
-                setPaymentConfig(data);
-            } catch (err) {
-                console.error("Failed to load payment config", err);
-            }
-        };
-
         fetchEvents();
-        fetchPaymentConfig();
 
         const handleClickOutside = (event) => {
             if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -271,24 +258,6 @@ const Registration = () => {
         }
     };
 
-    const handleUPIPayment = (e) => {
-        if (e) e.preventDefault();
-        if (!currentEvent) return;
-        if (!currentEvent.upiId?.includes('@')) return toast.error("Invalid UPI ID. Contact admin.");
-
-        setPaymentLoading(true);
-        triggerUPIPayment({
-            upiId: currentEvent.upiId,
-            name: currentEvent.name,
-            amount: currentEvent.feeAmount,
-            onDesktop: () => {
-                setShowDesktopWarning(true);
-                toast.info("Switch to mobile for direct UPI redirect.");
-            }
-        });
-        setTimeout(() => setPaymentLoading(false), 2000);
-    };
-
     const handleCopy = (text, type) => {
         navigator.clipboard.writeText(text || '');
         setActiveCopy(type);
@@ -418,51 +387,29 @@ const Registration = () => {
                                 {/* Payment Gate */}
                                 <div style={{ background: 'white', color: 'black', padding: '30px', borderRadius: '20px', textAlign: 'center' }}>
                                     <h2 style={{ fontWeight: 900 }}>SECURE PAYMENT</h2>
-                                    {paymentConfig?.paymentMode === 'BANK' ? (
-                                        <div style={{ textAlign: 'left', marginTop: '20px' }}>
-                                            <div style={{ background: '#f8f8f8', padding: '20px', borderRadius: '12px' }}>
-                                                <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>ACCOUNT HOLDER</p>
-                                                <p style={{ fontWeight: 'bold' }}>{paymentConfig.accountHolderName}</p>
-                                                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
-                                                    <div>
-                                                        <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>ACCOUNT NUMBER</p>
-                                                        <p style={{ fontWeight: 'bold' }}>{paymentConfig.accountNumber}</p>
-                                                    </div>
-                                                    <button type="button" onClick={() => handleCopy(paymentConfig.accountNumber, 'Account')} style={copyBtnStyle}><FiCopy /></button>
+
+                                    <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <div style={{ background: 'white', padding: '15px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: 'inline-block', border: '1px solid #eee' }}>
+                                            {currentEvent?.qrCode?.url ? (
+                                                <img
+                                                    src={currentEvent.qrCode.url}
+                                                    alt="Payment QR"
+                                                    style={{ width: '100%', maxWidth: '250px', height: 'auto', display: 'block', borderRadius: '10px' }}
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = 'https://via.placeholder.com/250?text=QR+Not+Available';
+                                                        toast.error("Event QR failed to load. Contact admin.");
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{ width: '250px', height: '250px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+                                                    <FiImage size={40} style={{ marginBottom: '10px', opacity: 0.3 }} />
+                                                    <p style={{ fontSize: '0.8rem' }}>QR Not Available. Contact Admin.</p>
                                                 </div>
-                                                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
-                                                    <div>
-                                                        <p style={{ opacity: 0.5, fontSize: '0.7rem' }}>IFSC CODE</p>
-                                                        <p style={{ fontWeight: 'bold' }}>{paymentConfig.ifscCode}</p>
-                                                    </div>
-                                                    <button type="button" onClick={() => handleCopy(paymentConfig.ifscCode, 'IFSC')} style={copyBtnStyle}><FiCopy /></button>
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <div style={{ background: 'white', padding: '15px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: 'inline-block' }}>
-                                                {paymentConfig?.qrImageUrl ? (
-                                                    <img
-                                                        src={paymentConfig.qrImageUrl}
-                                                        alt="Payment QR"
-                                                        style={{ width: '100%', maxWidth: '250px', height: 'auto', display: 'block', borderRadius: '10px' }}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = 'https://via.placeholder.com/250?text=QR+Not+Available';
-                                                            toast.error("QR Code failed to load. Please contact admin.");
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div style={{ width: '250px', height: '250px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-                                                        <FiImage size={40} style={{ marginBottom: '10px', opacity: 0.3 }} />
-                                                        <p style={{ fontSize: '0.8rem' }}>QR Not Configured</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#666', fontWeight: 'bold' }}>Scan QR to pay ₹{currentEvent.feeAmount}</p>
-                                        </div>
-                                    )}
+                                        <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#333', fontWeight: 'bold' }}>Scan QR to pay ₹{currentEvent?.feeAmount}</p>
+                                    </div>
 
                                     <div style={{ marginTop: '40px', textAlign: 'left', borderTop: '1px solid #eee', paddingTop: '30px' }}>
                                         <label style={{ ...labelStyle, color: '#333' }}>UPLOAD PAYMENT SCREENSHOT *</label>

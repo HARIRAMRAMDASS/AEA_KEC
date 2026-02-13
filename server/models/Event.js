@@ -7,7 +7,10 @@ const eventSchema = new mongoose.Schema({
     teamSize: { type: Number, required: true },
     feeType: { type: String, enum: ['Per Head', 'Per Team'], required: true },
     feeAmount: { type: Number, required: true },
-    upiId: { type: String, required: true },
+    qrCode: {
+        url: { type: String },
+        publicId: { type: String }
+    },
     closingDate: { type: Date, required: true },
     whatsappLink: { type: String, required: true },
     description: { type: String, required: true },

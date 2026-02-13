@@ -13,16 +13,25 @@ const xlsx = require('xlsx');
 const crypto = require('crypto');
 
 // @desc Create a new event
-router.post('/', protect, asyncHandler(async (req, res) => {
+router.post('/', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
     try {
         console.log("=== EVENT CREATION REQUEST ===");
-        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, details, description, subEvents, upiId } = req.body;
+        let { name, type, date, teamSize, feeType, feeAmount, closingDate, whatsappLink, maxSelectableEvents, selectionMode, details, description, subEvents } = req.body;
 
         if (typeof details === 'string') {
             try { details = JSON.parse(details); } catch (e) { details = []; }
         }
         if (typeof subEvents === 'string') {
             try { subEvents = JSON.parse(subEvents); } catch (e) { subEvents = []; }
+        }
+
+        let qrCodeData = { url: '', publicId: '' };
+        if (req.file) {
+            const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events/qrcodes');
+            qrCodeData = {
+                url: uploaded.secure_url,
+                publicId: uploaded.public_id
+            };
         }
 
         const event = await Event.create({
@@ -32,7 +41,7 @@ router.post('/', protect, asyncHandler(async (req, res) => {
             teamSize,
             feeType,
             feeAmount,
-            upiId,
+            qrCode: qrCodeData,
             closingDate,
             whatsappLink,
             description,
@@ -87,16 +96,36 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Event removed' });
 }));
 
-// @desc Update Event UPI ID
-router.put('/:id/upi', protect, asyncHandler(async (req, res) => {
-    const { upiId } = req.body;
+// @desc Update Event QR Code
+router.put('/:id/qr', protect, upload.single('qrCode'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        res.status(400);
+        throw new Error('Please upload a QR code image');
+    }
+
     const event = await Event.findById(req.params.id);
     if (!event) {
         res.status(404);
         throw new Error('Event not found');
     }
 
-    event.upiId = upiId;
+    // Delete old QR if exists
+    if (event.qrCode && event.qrCode.publicId) {
+        try {
+            await cloudinary.uploader.destroy(event.qrCode.publicId);
+        } catch (err) {
+            console.error("Old QR deletion failed:", err);
+        }
+    }
+
+    // Upload new QR
+    const uploaded = await uploadToCloudinary(req.file.buffer, 'aea_kec/events/qrcodes');
+
+    event.qrCode = {
+        url: uploaded.secure_url,
+        publicId: uploaded.public_id
+    };
+
     await event.save();
     res.json(event);
 }));
