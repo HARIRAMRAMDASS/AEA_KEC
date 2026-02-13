@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle, FiSettings, FiCreditCard, FiCopy } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiDownload, FiImage, FiVideo, FiCalendar, FiUsers, FiLogOut, FiMenu, FiX, FiArrowLeft, FiCheckCircle, FiSettings, FiCreditCard, FiCopy, FiRefreshCw, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('events');
@@ -10,7 +11,6 @@ const AdminDashboard = () => {
     const [bearers, setBearers] = useState([]);
     const [videos, setVideos] = useState([]);
     const [members, setMembers] = useState([]);
-    const [payments, setPayments] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
@@ -28,18 +28,10 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [evRes, brRes, viRes, memRes, payRes] = await Promise.all([
-                axios.get(`${API_URL}/events`),
-                axios.get(`${API_URL}/bearers`),
-                axios.get(`${API_URL}/videos`),
-                axios.get(`${API_URL}/members`),
-                axios.get(`${API_URL}/events/verify/pending`, { withCredentials: true })
-            ]);
             setEvents(evRes.data);
             setBearers(brRes.data);
             setVideos(viRes.data);
             setMembers(memRes.data);
-            setPayments(payRes.data);
             setError(null);
         } catch (err) {
             console.error('Fetch failed', err);
@@ -85,7 +77,11 @@ const AdminDashboard = () => {
             case 'bearers': return <MediaPanel title="Office Bearers" type="bearers" data={bearers} onRefresh={fetchData} onDelete={(id) => deleteItem('bearers', id)} />;
             case 'videos': return <MediaPanel title="Videos" type="videos" data={videos} onRefresh={fetchData} onDelete={(id) => deleteItem('videos', id)} isVideo />;
             case 'members': return <MembersPanel data={members} onRefresh={fetchData} onDelete={(id) => deleteItem('members', id)} />;
-            case 'payments': return <PaymentsPanel data={payments} onRefresh={fetchData} />;
+            case 'payments': return (
+                <ErrorBoundary key="payments">
+                    <PaymentsPanel />
+                </ErrorBoundary>
+            );
             case 'paymentSettings': return <PaymentSettingsPanel />;
             case 'admins': return <AdminsPanel onRefresh={fetchData} />;
             default: return null;
@@ -847,14 +843,58 @@ const MembersPanel = ({ data, onRefresh, onDelete }) => {
     );
 };
 
-const PaymentsPanel = ({ data, onRefresh }) => {
-    const [loading, setLoading] = useState({});
-    const [edits, setEdits] = useState({}); // Store manual overrides
+const PaymentsPanel = () => {
+    const [payments, setPayments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState({});
+    const [edits, setEdits] = useState({});
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [fetchError, setFetchError] = useState(null);
+
     const API_URL = '/api';
+
+    const fetchPayments = async () => {
+        setLoading(true);
+        setFetchError(null);
+        try {
+            const { data } = await axios.get(`${API_URL}/events/verify/pending`, {
+                params: { page, limit },
+                withCredentials: true
+            });
+
+            // Defensive checks
+            if (data && Array.isArray(data.verifications)) {
+                setPayments(data.verifications);
+                setTotalPages(data.pages || 1);
+                setTotalRecords(data.total || 0);
+            } else if (Array.isArray(data)) {
+                // Fallback for old API structure
+                setPayments(data);
+                setTotalPages(1);
+                setTotalRecords(data.length);
+            } else {
+                setPayments([]);
+                setTotalPages(1);
+            }
+        } catch (err) {
+            console.error("Fetch Payments Error:", err);
+            setFetchError("Failed to load payments. Please try again.");
+            setPayments([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPayments();
+    }, [page, limit]);
 
     const handleAction = async (pay, action) => {
         const id = pay._id;
-        setLoading(prev => ({ ...prev, [id]: true }));
+        setActionLoading(prev => ({ ...prev, [id]: true }));
         try {
             const payload = action === 'approve' ? {
                 transactionId: edits[id]?.transactionId ?? pay.transactionId,
@@ -863,11 +903,13 @@ const PaymentsPanel = ({ data, onRefresh }) => {
 
             await axios.post(`${API_URL}/events/verify/${action}/${id}`, payload, { withCredentials: true });
             toast.success(`Payment ${action === 'approve' ? 'Verified' : 'Rejected'}`);
-            onRefresh();
+
+            // Refetch current page to keep UI consistent
+            fetchPayments();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Operation failed');
         } finally {
-            setLoading(prev => ({ ...prev, [id]: false }));
+            setActionLoading(prev => ({ ...prev, [id]: false }));
         }
     };
 
@@ -878,66 +920,159 @@ const PaymentsPanel = ({ data, onRefresh }) => {
         }));
     };
 
+    if (fetchError) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px', background: 'rgba(255, 77, 77, 0.1)', borderRadius: '15px' }}>
+                <FiX size={40} color="#ff4d4d" />
+                <p style={{ color: '#ff4d4d', marginTop: '15px' }}>{fetchError}</p>
+                <button onClick={fetchPayments} className="btn-primary" style={{ marginTop: '20px' }}>Retry Connection</button>
+            </div>
+        );
+    }
+
     return (
         <div>
-            <h1>Payment Verification</h1>
-            <p style={{ opacity: 0.6, marginBottom: '30px' }}>Verify screenshots and confirm transaction details. You can manually edit the ID/Amount if OCR missed it.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' }}>
+                <div>
+                    <h1 style={{ margin: 0 }}>Payment Verification</h1>
+                    <p style={{ opacity: 0.6, marginTop: '5px' }}>{totalRecords} pending requests across {totalPages} pages.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                    <select
+                        value={limit}
+                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                        style={{ ...inputStyle, width: 'auto', padding: '10px' }}
+                    >
+                        <option value={20}>20 per page</option>
+                        <option value={50}>50 per page</option>
+                        <option value={100}>100 per page</option>
+                    </select>
+                    <button onClick={fetchPayments} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer' }} title="Refresh">
+                        <FiRefreshCw className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
+            </div>
 
-            <div style={{ display: 'grid', gap: '20px' }}>
-                {data.map(pay => (
-                    <div key={pay._id} className="glass-card" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 1.5fr 1fr', gap: '30px', alignItems: 'center' }}>
-                        <div>
-                            <p style={{ fontSize: '0.8rem', opacity: 0.5, marginBottom: '5px' }}>SCREENSHOT</p>
-                            <a href={pay.screenshotUrl} target="_blank" rel="noreferrer">
-                                <img src={pay.screenshotUrl} alt="payment" style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                            </a>
-                        </div>
-                        <div>
-                            <h3 className="text-box" style={{ margin: 0 }}>{pay.participantName}</h3>
-                            <p className="text-box" style={{ color: 'var(--mercedes-green)', fontWeight: 'bold', margin: '5px 0' }}>{pay.eventId?.name}</p>
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '100px' }}>
+                    <div className="spinner-small" style={{ margin: '0 auto 20px' }} />
+                    <p style={{ opacity: 0.5, letterSpacing: '2px' }}>LOADING PADDOCK DATA...</p>
+                </div>
+            ) : (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    {payments.map(pay => (
+                        <div key={pay._id || Math.random()} className="glass-card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '30px', alignItems: 'center' }}>
+                            <div>
+                                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginBottom: '5px' }}>SCREENSHOT</p>
+                                <a href={pay.screenshotUrl} target="_blank" rel="noreferrer">
+                                    <img
+                                        src={pay.screenshotUrl}
+                                        alt="payment"
+                                        style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                        onError={(e) => { e.target.src = 'https://via.placeholder.com/200?text=Image+Load+Error'; }}
+                                    />
+                                </a>
+                            </div>
+                            <div>
+                                <h3 className="text-box" style={{ margin: 0 }}>{pay.participantName || 'Unknown'}</h3>
+                                <p className="text-box" style={{ color: 'var(--mercedes-green)', fontWeight: 'bold', margin: '5px 0' }}>{pay.eventId?.name || 'Unknown Event'}</p>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
-                                <div>
-                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>TRANSACTION ID</label>
-                                    <input
-                                        style={inputStyle}
-                                        value={edits[pay._id]?.transactionId ?? pay.transactionId}
-                                        onChange={(e) => handleEditChange(pay._id, 'transactionId', e.target.value)}
-                                        placeholder="Missing ID..."
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>AMOUNT (₹)</label>
-                                    <input
-                                        type="number"
-                                        style={inputStyle}
-                                        value={edits[pay._id]?.amount ?? pay.amount}
-                                        onChange={(e) => handleEditChange(pay._id, 'amount', e.target.value)}
-                                    />
-                                </div>
-                                <div style={{ gridColumn: '1 / -1' }}>
-                                    <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>RECIPIENT UPI (OCR)</label>
-                                    <p style={{ margin: 0, fontSize: '0.85rem' }}>{pay.upiId || 'Not detected'}</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>TRANSACTION ID</label>
+                                        <input
+                                            style={inputStyle}
+                                            value={edits[pay._id]?.transactionId ?? pay.transactionId ?? ''}
+                                            onChange={(e) => handleEditChange(pay._id, 'transactionId', e.target.value)}
+                                            placeholder="Enter ID if missing..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>AMOUNT ({'\u20B9'})</label>
+                                        <input
+                                            type="number"
+                                            style={inputStyle}
+                                            value={edits[pay._id]?.amount ?? pay.amount ?? ''}
+                                            onChange={(e) => handleEditChange(pay._id, 'amount', e.target.value)}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ fontSize: '0.7rem', opacity: 0.5, display: 'block', marginBottom: '5px' }}>RECIPIENT UPI (OCR)</label>
+                                        <p style={{ margin: 0, fontSize: '0.85rem', fontFamily: 'monospace' }}>{pay.upiId || 'Not detected'}</p>
+                                    </div>
                                 </div>
                             </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <button
+                                    disabled={actionLoading[pay._id]}
+                                    onClick={() => handleAction(pay, 'approve')}
+                                    style={{
+                                        background: 'var(--mercedes-green)',
+                                        color: 'black',
+                                        border: 'none',
+                                        padding: '15px',
+                                        borderRadius: '8px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        opacity: actionLoading[pay._id] ? 0.7 : 1
+                                    }}
+                                >
+                                    {actionLoading[pay._id] ? <div className="spinner-small" style={{ width: '16px', height: '16px', borderTopColor: 'black' }} /> : <FiCheckCircle />}
+                                    {actionLoading[pay._id] ? 'Processing...' : 'Approve & Register'}
+                                </button>
+                                <button
+                                    disabled={actionLoading[pay._id]}
+                                    onClick={() => handleAction(pay, 'reject')}
+                                    style={{
+                                        background: 'rgba(255, 77, 77, 0.1)',
+                                        color: '#ff4d4d',
+                                        border: '1px solid #ff4d4d',
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        opacity: actionLoading[pay._id] ? 0.5 : 1
+                                    }}
+                                >
+                                    Reject Payment
+                                </button>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <button disabled={loading[pay._id]} onClick={() => handleAction(pay, 'approve')} style={{ background: 'var(--mercedes-green)', color: 'black', border: 'none', padding: '15px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <FiCheckCircle /> {loading[pay._id] ? 'Processing...' : 'Approve & Register'}
-                            </button>
-                            <button disabled={loading[pay._id]} onClick={() => handleAction(pay, 'reject')} style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: '1px solid #ff4d4d', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                Reject Payment
-                            </button>
+                    ))}
+                    {payments.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            <FiCheckCircle style={{ fontSize: '4rem', opacity: 0.1, marginBottom: '20px' }} />
+                            <p style={{ opacity: 0.4, fontSize: '1.2rem' }}>Paddock is clear. All payments processed.</p>
                         </div>
-                    </div>
-                ))}
-                {data.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                        <FiCheckCircle style={{ fontSize: '4rem', opacity: 0.1, marginBottom: '20px' }} />
-                        <p style={{ opacity: 0.4, fontSize: '1.2rem' }}>Paddock is clear. All payments processed.</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '40px', alignItems: 'center' }}>
+                    <button
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', opacity: page === 1 ? 0.3 : 1 }}
+                    >
+                        <FiChevronLeft /> Previous
+                    </button>
+                    <span style={{ opacity: 0.7 }}>Page {page} of {totalPages}</span>
+                    <button
+                        disabled={page === totalPages || loading}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', opacity: page === totalPages ? 0.3 : 1 }}
+                    >
+                        Next <FiChevronRight />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
