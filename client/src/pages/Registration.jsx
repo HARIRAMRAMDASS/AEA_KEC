@@ -97,6 +97,10 @@ const Registration = () => {
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
+
+        // Ensure page starts at top
+        window.scrollTo(0, 0);
+
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [eventIdFromUrl]);
 
@@ -223,14 +227,17 @@ const Registration = () => {
     const handleUploadScreenshot = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        setScreenshot(file);
 
+        // Basic Client Validations
         if (selectedEventIds.length === 0) return toast.error("Select an event first");
         if (!formData.collegeName) return toast.error("College name required");
         const m1 = formData.members[0];
         if (!m1?.name || !m1?.email || !m1?.phone) return toast.error("Lead member details mandatory!");
 
+        setScreenshot(file);
         setLoading(true);
+        toast.info("Uploading screenshot... Please wait.", { autoClose: 2000 });
+
         const submitData = new FormData();
         submitData.append('participantName', m1.name);
         submitData.append('eventId', selectedEventIds[0]);
@@ -249,9 +256,15 @@ const Registration = () => {
             setVerificationId(data._id);
             setVerificationStatus('PENDING');
             setOcrData({ transactionId: data.transactionId, amount: data.amount, upiId: data.upiId });
-            toast.success("Screenshot uploaded. Admin will verify shortly.");
+
+            if (data.transactionId) {
+                toast.success("Transaction ID detected automatically!");
+            } else {
+                toast.success("Screenshot uploaded successfully. Processing details...");
+            }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Upload failed");
+            console.error("Upload Error:", err);
+            toast.error(err.response?.data?.message || "Upload failed. Please try again.");
             setVerificationStatus('IDLE');
         } finally {
             setLoading(false);
@@ -427,20 +440,65 @@ const Registration = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div style={{ marginTop: '20px' }}>
-                                            <img src={paymentConfig?.qrImageUrl} alt="QR" style={{ width: '200px', borderRadius: '10px' }} />
-                                            <p style={{ marginTop: '10px', fontSize: '0.8rem', opacity: 0.6 }}>Scan QR to pay ₹{currentEvent.feeAmount}</p>
+                                        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <div style={{ background: 'white', padding: '15px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: 'inline-block' }}>
+                                                {paymentConfig?.qrImageUrl ? (
+                                                    <img
+                                                        src={paymentConfig.qrImageUrl}
+                                                        alt="Payment QR"
+                                                        style={{ width: '100%', maxWidth: '250px', height: 'auto', display: 'block', borderRadius: '10px' }}
+                                                        onError={(e) => {
+                                                            e.target.onerror = null;
+                                                            e.target.src = 'https://via.placeholder.com/250?text=QR+Not+Available';
+                                                            toast.error("QR Code failed to load. Please contact admin.");
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div style={{ width: '250px', height: '250px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+                                                        <FiImage size={40} style={{ marginBottom: '10px', opacity: 0.3 }} />
+                                                        <p style={{ fontSize: '0.8rem' }}>QR Not Configured</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#666', fontWeight: 'bold' }}>Scan QR to pay ₹{currentEvent.feeAmount}</p>
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '30px' }}>
-                                        <label style={{ ...labelStyle, color: '#666' }}>UPLOAD PAYMENT SCREENSHOT *</label>
-                                        <input type="file" accept="image/*" onChange={handleUploadScreenshot} style={{ ...inputStyle, background: '#f5f5f5', color: 'black', border: '1px solid #ddd' }} />
+                                    <div style={{ marginTop: '40px', textAlign: 'left', borderTop: '1px solid #eee', paddingTop: '30px' }}>
+                                        <label style={{ ...labelStyle, color: '#333' }}>UPLOAD PAYMENT SCREENSHOT *</label>
+                                        <p style={{ fontSize: '0.7rem', color: '#999', marginBottom: '10px' }}>Make sure Transaction ID is clearly visible for auto-verification.</p>
+                                        <input
+                                            disabled={loading || verificationStatus === 'PENDING'}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleUploadScreenshot}
+                                            style={{ ...inputStyle, background: '#f8f8f8', color: 'black', border: '1px solid #ddd', cursor: (loading || verificationStatus === 'PENDING') ? 'not-allowed' : 'pointer' }}
+                                        />
                                     </div>
 
+                                    {loading && (
+                                        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--mercedes-green)', fontWeight: 'bold' }}>
+                                            <div className="spinner-small" />
+                                            <span>Processing screenshot...</span>
+                                        </div>
+                                    )}
+
                                     {verificationStatus === 'PENDING' && (
-                                        <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,161,155,0.1)', color: 'var(--mercedes-green)', borderRadius: '10px', fontWeight: 'bold' }}>
-                                            ⌛ VERIFYING PAYMENT... PLEASE WAIT.
+                                        <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(0,161,155,0.05)', color: 'var(--mercedes-green)', borderRadius: '15px', border: '1px solid var(--mercedes-green)', textAlign: 'left' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                                <FiCheckCircle />
+                                                <p style={{ fontWeight: 'bold', margin: 0 }}>SUBMITTED TO CONTROL TOWER</p>
+                                            </div>
+                                            {ocrData?.transactionId && (
+                                                <p style={{ fontSize: '0.85rem', background: 'rgba(0,0,0,0.05)', padding: '8px 12px', borderRadius: '8px', margin: '10px 0' }}>
+                                                    Detected ID: <b style={{ letterSpacing: '1px' }}>{ocrData.transactionId}</b>
+                                                </p>
+                                            )}
+                                            <p style={{ fontSize: '0.8rem', opacity: 0.8, lineHeight: '1.4' }}>
+                                                {ocrData?.transactionId
+                                                    ? "Transaction ID detected automatically. Please wait for admin verification."
+                                                    : "Screenshot uploaded. Our AI is processing the details. Please wait for admin approval."}
+                                            </p>
                                         </div>
                                     )}
                                 </div>
