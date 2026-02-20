@@ -9,6 +9,8 @@ import ErrorBoundary from '../components/ErrorBoundary';
 
 const Registration = () => {
     const API_URL = '/api';
+    const fileInputRef = useRef(null);
+    const [uploadStatus, setUploadStatus] = useState('');
 
     const location = useLocation();
     const eventIdFromUrl = new URLSearchParams(location.search).get('eventId');
@@ -42,6 +44,8 @@ const Registration = () => {
     const [ocrData, setOcrData] = useState(null);
     const [whatsappLink, setWhatsappLink] = useState(null);
     const [activeCopy, setActiveCopy] = useState(null);
+    const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+    const [modalContent, setModalContent] = useState({ title: '', description: '' });
 
 
     useEffect(() => {
@@ -152,7 +156,16 @@ const Registration = () => {
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
-            setScreenshot(e.target.files[0]);
+            const file = e.target.files[0];
+            if (!file.type.startsWith('image/')) {
+                toast.error("Please upload an image file (JPG/PNG)");
+                return;
+            }
+            setScreenshot(file);
+            setUploadStatus(`Selected: ${file.name}`);
+        } else {
+            setUploadStatus('');
+            setScreenshot(null);
         }
     };
 
@@ -211,6 +224,14 @@ const Registration = () => {
         setActiveCopy(type);
         toast.info(`${type} copied!`);
         setTimeout(() => setActiveCopy(null), 2000);
+    };
+
+    const handleOpenDescription = (event) => {
+        setModalContent({
+            title: event.name,
+            description: event.description || "Description will be updated soon."
+        });
+        setShowDescriptionModal(true);
     };
 
     if (fetchError) {
@@ -282,6 +303,21 @@ const Registration = () => {
                                                     <div>
                                                         <h3 style={{ margin: 0, color: selectedEventId === ev._id ? 'var(--mercedes-green)' : 'white' }}>{ev.name}</h3>
                                                         <p style={{ opacity: 0.6, fontSize: '0.8rem', marginTop: '5px' }}>{ev.type} | {ev.feeType}</p>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenDescription(ev); }}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: 'var(--mercedes-green)',
+                                                                fontSize: '0.7rem',
+                                                                padding: '5px 0',
+                                                                cursor: 'pointer',
+                                                                textDecoration: 'underline',
+                                                                marginTop: '5px'
+                                                            }}
+                                                        >
+                                                            Read Description
+                                                        </button>
                                                     </div>
                                                     <div style={{
                                                         width: '24px',
@@ -327,6 +363,29 @@ const Registration = () => {
                                         window.scrollTo(0, 0);
                                     }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>Change</button>
                                 </div>
+
+                                <button
+                                    onClick={() => handleOpenDescription(currentEvent)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        marginBottom: '20px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'white',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    className="description-btn"
+                                >
+                                    <FiAlertTriangle size={16} /> Read Event Description
+                                </button>
 
                                 {/* College Search */}
                                 <div style={{ marginBottom: '30px' }}>
@@ -440,12 +499,42 @@ const Registration = () => {
                                         <label style={{ ...labelStyle, color: '#333' }}>UPLOAD PAYMENT SCREENSHOT *</label>
                                         <p style={{ fontSize: '0.7rem', color: '#999', marginBottom: '10px' }}>Make sure Transaction ID is clearly visible for auto-verification.</p>
                                         <input
-                                            disabled={loading || verificationStatus === 'PENDING'}
+                                            ref={fileInputRef}
                                             type="file"
                                             accept="image/*"
                                             onChange={handleFileChange}
-                                            style={{ ...inputStyle, background: '#f8f8f8', color: 'black', border: '1px solid #ddd', cursor: (loading || verificationStatus === 'PENDING') ? 'not-allowed' : 'pointer' }}
+                                            style={{ display: 'none' }}
                                         />
+                                        <div
+                                            onClick={() => !loading && fileInputRef.current.click()}
+                                            style={{
+                                                width: '100%',
+                                                padding: '20px',
+                                                background: screenshot ? 'rgba(0,161,155,0.05)' : '#f8f8f8',
+                                                border: `2px dashed ${screenshot ? 'var(--mercedes-green)' : '#ddd'}`,
+                                                borderRadius: '15px',
+                                                cursor: loading ? 'not-allowed' : 'pointer',
+                                                textAlign: 'center',
+                                                transition: 'all 0.3s ease',
+                                                color: '#333'
+                                            }}
+                                            className="upload-btn"
+                                        >
+                                            <FiImage size={30} style={{ marginBottom: '10px', color: screenshot ? 'var(--mercedes-green)' : '#999' }} />
+                                            <div style={{ fontWeight: 'bold' }}>
+                                                {screenshot ? 'Change Screenshot' : 'Upload Payment Screenshot'}
+                                            </div>
+                                            <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
+                                                {uploadStatus || 'JPG, PNG formats supported'}
+                                            </div>
+                                        </div>
+
+                                        {loading && (
+                                            <div style={{ marginTop: '15px', color: 'var(--mercedes-green)', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                <div className="spinner-small" style={{ width: '15px', height: '15px', borderWidth: '2px' }} />
+                                                Uploading... Please wait during upload.
+                                            </div>
+                                        )}
                                     </div>
 
                                     <button
@@ -464,12 +553,7 @@ const Registration = () => {
                                         {loading ? 'PROCESSING...' : 'COMPLETE REGISTRATION'}
                                     </button>
 
-                                    {loading && (
-                                        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--mercedes-green)', fontWeight: 'bold' }}>
-                                            <div className="spinner-small" />
-                                            <span>Verifying payment...</span>
-                                        </div>
-                                    )}
+
 
                                     {verificationStatus === 'PENDING' && (
                                         <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(0,161,155,0.05)', color: 'var(--mercedes-green)', borderRadius: '15px', border: '1px solid var(--mercedes-green)', textAlign: 'left' }}>
@@ -493,11 +577,103 @@ const Registration = () => {
                     </motion.div>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {showDescriptionModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowDescriptionModal(false)}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.85)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 2000,
+                            padding: '20px',
+                            backdropFilter: 'blur(8px)'
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                background: '#111',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '20px',
+                                width: '100%',
+                                maxWidth: '600px',
+                                padding: '40px',
+                                position: 'relative',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                            }}
+                        >
+                            <button
+                                onClick={() => setShowDescriptionModal(false)}
+                                style={{
+                                    position: 'absolute',
+                                    top: '20px',
+                                    right: '20px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: 'none',
+                                    color: 'white',
+                                    width: '35px',
+                                    height: '35px',
+                                    borderRadius: '50%',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✕
+                            </button>
+
+                            <h2 style={{ color: 'var(--mercedes-green)', marginBottom: '20px', fontSize: '1.5rem', fontWeight: 900 }}>{modalContent.title}</h2>
+                            <div
+                                style={{
+                                    color: 'rgba(255,255,255,0.8)',
+                                    lineHeight: '1.6',
+                                    maxHeight: '60vh',
+                                    overflowY: 'auto',
+                                    fontSize: '1rem'
+                                }}
+                            >
+                                {modalContent.description.split('\n').map((line, i) => (
+                                    <p key={i} style={{ marginBottom: '15px' }}>{line}</p>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setShowDescriptionModal(false)}
+                                className="btn-primary"
+                                style={{
+                                    width: '100%',
+                                    marginTop: '30px',
+                                    padding: '15px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                CLOSE
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <style>{`
                 .spinner-small { width: 30px; height: 30px; border: 3px solid rgba(0,161,155,0.1); border-top-color: var(--mercedes-green); border-radius: 50%; animation: spin 0.8s linear infinite; }
                 @keyframes spin { to { transform: rotate(360deg); } }
             `}</style>
-        </ErrorBoundary>
+        </ErrorBoundary >
     );
 };
 

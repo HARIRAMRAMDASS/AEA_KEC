@@ -21,6 +21,7 @@ router.get('/export-excel', protect, asyncHandler(async (req, res) => {
 
         const participants = await Participant.find(query)
             .populate('events', 'name')
+            .populate('eventId', 'name')
             .sort({ createdAt: -1 });
 
         // Handle no records
@@ -59,8 +60,11 @@ router.get('/export-excel', protect, asyncHandler(async (req, res) => {
 
         let counter = 1;
         participants.forEach(participant => {
-            // Join event names if multiple (though filtering usually implies one)
-            const eventsList = participant.events.map(e => e.name).join(', ');
+            // Safe event name assignment as requested
+            const eventName = participant.eventName ||
+                participant.eventId?.name ||
+                (participant.events && participant.events[0]?.name) ||
+                "N/A";
 
             // Iterate over team members
             participant.members.forEach(member => {
@@ -71,7 +75,7 @@ router.get('/export-excel', protect, asyncHandler(async (req, res) => {
                     phone: member.phone || 'N/A',
                     college: participant.collegeName || 'N/A',
                     department: member.department || 'N/A',
-                    event_name: eventsList,
+                    event_name: eventName,
                     transaction_id: participant.transactionId || 'N/A',
                     ticket_id: participant.verificationCode || 'N/A',
                     registration_date: participant.createdAt ? new Date(participant.createdAt).toLocaleString('en-IN') : 'N/A'

@@ -10,6 +10,8 @@ const memberSchema = new mongoose.Schema({
 
 const participantSchema = new mongoose.Schema({
     events: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true }],
+    eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event' },
+    eventName: { type: String },
     teamName: { type: String },
     members: [memberSchema],
     college: {

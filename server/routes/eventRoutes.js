@@ -237,6 +237,8 @@ router.post('/verify/approve/:id', protect, asyncHandler(async (req, res) => {
     const participant = await Participant.create({
         ...registrationData,
         events: [eventId],
+        eventId: eventId,
+        eventName: event.name,
         verificationCode,
         isVerified: true,
         status: 'verified',
@@ -377,6 +379,8 @@ router.post('/register', upload.single('paymentScreenshot'), asyncHandler(async 
 
     const participant = await Participant.create({
         events: eventIds,
+        eventId: eventIds[0],
+        eventName: events[0]?.name,
         teamName,
         members,
         college,
